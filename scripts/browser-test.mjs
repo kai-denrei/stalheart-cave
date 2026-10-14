@@ -19,7 +19,7 @@ try{
   const send=(method,params={})=>new Promise((resolve,reject)=>{const id=++serial;pending.set(id,{resolve,reject});ws.send(JSON.stringify({id,method,params}));});
   const evaluate=async expression=>{const r=await send('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true});if(r.exceptionDetails)throw new Error(JSON.stringify(r.exceptionDetails));return r.result.value;};
   const wait=ms=>new Promise(r=>setTimeout(r,ms));
-  const key=async(code,type='keyDown')=>send('Input.dispatchKeyEvent',{type,code,key:({KeyW:'w',KeyE:'e',KeyQ:'q',KeyP:'p',KeyF:'f',Space:' '})[code]||code,windowsVirtualKeyCode:({KeyW:87,KeyE:69,KeyQ:81,KeyP:80,KeyF:70,Space:32})[code]||0});
+  const key=async(code,type='keyDown')=>send('Input.dispatchKeyEvent',{type,code,key:({KeyW:'w',KeyE:'e',KeyQ:'q',KeyP:'p',KeyF:'f',ShiftLeft:'Shift',Space:' '})[code]||code,windowsVirtualKeyCode:({KeyW:87,KeyE:69,KeyQ:81,KeyP:80,KeyF:70,ShiftLeft:16,Space:32})[code]||0});
   const snap=()=>evaluate('window.__below.snapshot()');
   const capture=async name=>{await wait(200);const r=await send('Page.captureScreenshot',{format:'png'});await writeFile(new URL(`../artifacts/${name}.png`,import.meta.url),Buffer.from(r.data,'base64'));};
   await send('Runtime.enable');await send('Log.enable');await send('Page.enable');
@@ -30,8 +30,10 @@ try{
   assert.ok(await evaluate('!!window.__below'),'world boots');await capture('01-briefing');
   const button=await evaluate('(()=>{const r=document.getElementById("begin").getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()');
   await send('Input.dispatchMouseEvent',{type:'mousePressed',...button,button:'left',clickCount:1});await send('Input.dispatchMouseEvent',{type:'mouseReleased',...button,button:'left',clickCount:1});await wait(300);
-  assert.equal((await snap()).mode,'playing');await capture('02-stalheart-sinkhole');
-  const start=await snap();await key('KeyW');await wait(600);await key('KeyW','keyUp');assert.ok((await snap()).position[2]<start.position[2]-.5,'keyboard flight');
+  assert.equal((await snap()).mode,'playing');assert.equal((await snap()).isaoModel,'isao_birudoron_lod1');assert.equal((await snap()).rotorClip,true);assert.equal((await snap()).cutisCount,5);assert.equal((await snap()).cutisType,'Cutis-Soft Ivory');assert.ok((await snap()).cameraDistance>2);await capture('02-third-person-isao');
+  const start=await snap();await key('KeyW');await wait(600);await key('KeyW','keyUp');const moved=await snap();assert.ok(moved.position[2]<start.position[2]-.5,'keyboard flight');assert.ok(Math.abs(moved.position[1]-start.position[1])<.01,'W does not change altitude');
+  await key('ShiftLeft');await wait(600);await key('ShiftLeft','keyUp');assert.ok((await snap()).position[1]<moved.position[1]-.5,'Shift descends');await evaluate('__below.advance(.8)');const low=await snap();await key('Space');await wait(650);await key('Space','keyUp');assert.ok((await snap()).position[1]>low.position[1]+.5,'Space climbs');
+  await evaluate('__below.place(38);__below.look(0,-.55);__below.advance(.2)');await capture('03-cutis-ivory');
   await evaluate('__below.place(49);__below.look(0,0);__below.advance(.1)');assert.equal((await snap()).mission.lightFailed,true);
   await key('KeyQ');await key('KeyQ','keyUp');await wait(900);assert.equal((await snap()).mission.lidar,true);await capture('03-living-walls');
   await key('KeyF');await key('KeyF','keyUp');await evaluate('__below.advance(3)');assert.equal((await snap()).mission.flares,5);assert.equal((await snap()).flares.length,1);await capture('04-flare');
@@ -43,14 +45,15 @@ try{
   await evaluate('__below.pose(43,-190,-38);__below.look(.6,-.36);__below.advance(.2);__below.scan()');await wait(1700);await capture('06-queen-chamber');
   const nursery=await snap();assert.equal(nursery.mission.nursery,true);assert.equal(nursery.eggs,1600);assert.equal(nursery.chamberWidth,152);assert.equal(nursery.queenScale,620);assert.equal(nursery.tentacles,14);
   assert.equal(await evaluate('document.getElementById("interaction").hidden'),true,'no proximity placement prompt');
-  const laidBefore=nursery.laidEggs;await evaluate('__below.advance(8.2)');assert.ok((await snap()).laidEggs>laidBefore,'Queen keeps laying eggs');
+  const laidBefore=nursery.laidEggs;await evaluate('__below.advance(8.2)');assert.ok((await snap()).laidEggs>laidBefore,'Queen keeps laying eggs');assert.notDeepEqual((await snap()).queenPosition,nursery.queenPosition,'Queen moves slowly');assert.notEqual((await snap()).queenRotation,nursery.queenRotation,'Queen turns');
   await evaluate('__below.pose(36,-239,-63);__below.look(.77,.03);__below.scan()');await wait(1300);await capture('07-egg-laying');
   await evaluate('__below.nearQueen()');const chosen=(await snap()).position;await key('KeyE');await evaluate('__below.advance(3.2)');await key('KeyE','keyUp');
   assert.equal((await snap()).mission.payload,false);assert.equal((await snap()).mission.bombPosition.x,chosen[0]);await capture('08-extraction');
-  await evaluate('__below.pose(0,3,0);__below.advance(.1)');assert.equal((await snap()).mission.outcome,'rescued');await capture('09-rescued');
+  await evaluate('__below.pose(0,3,0);__below.advance(.1)');assert.equal((await snap()).mode,'surface');assert.equal((await snap()).mission.extracted,true);assert.equal((await snap()).mission.outcome,null);assert.equal((await snap()).detonationActive,false);await capture('09-surface-countdown');
+  const remaining=(await snap()).mission.fuse;await evaluate(`__below.advance(${remaining+.08})`);assert.equal((await snap()).mode,'detonation');assert.equal((await snap()).mission.outcome,'rescued');await evaluate('__below.advance(1)');assert.ok(Math.abs((await snap()).groundDisplacement)>.001);await capture('10-ground-tremor');await evaluate('__below.advance(3)');assert.equal((await snap()).smokeVisible,true);await capture('11-venting-smoke');await evaluate('__below.advance(7)');assert.equal((await snap()).mode,'ended');
   await evaluate('__below.start()');await wait(150);assert.equal((await snap()).mission.flares,6);assert.equal((await snap()).flares.length,0);
   await evaluate('__below.pose(-39,-225,-98)');await key('KeyE');await evaluate('__below.advance(3.2)');await key('KeyE','keyUp');assert.equal((await snap()).mission.bombPosition.x,-39,'second placement point is accepted');
-  await evaluate('__below.advance(106)');assert.equal((await snap()).mission.outcome,'sacrifice');await capture('10-sacrifice');
+  await evaluate('__below.advance(66)');assert.equal((await snap()).mission.outcome,'sacrifice');assert.equal((await snap()).mode,'detonation');await evaluate('__below.advance(4)');assert.equal((await snap()).smokeVisible,true);await capture('12-sacrifice-blast');await evaluate('__below.advance(7)');assert.equal((await snap()).mode,'ended');
   await evaluate('__below.start()');await wait(150);await evaluate('__below.hurt(100);__below.advance(.1)');assert.equal((await snap()).mission.outcome,'lost');
   // Fly the whole route, including both elbows and a down/up traversal of the shaft.
   await evaluate('__below.start()');await wait(150);
@@ -59,10 +62,12 @@ try{
     const press=(code,type='keydown')=>document.dispatchEvent(new KeyboardEvent(type,{code}));
     let steps=0;const milestones=[];
     function go(goal,limit=140){
-      press('KeyW');press('ShiftLeft');let n=0;
+      let n=0;
       while(n++<limit&&__below.snapshot().mode==='playing'){
         const state=__below.snapshot(),a=state.position,p={x:a[0],y:a[1],z:a[2]};if(distance(p,goal)<1.3)break;
-        const dx=goal.x-p.x,dy=goal.y-p.y,dz=goal.z-p.z;__below.look(-Math.atan2(dx,-dz),Math.atan2(dy,Math.hypot(dx,dz)));__below.advance(.08);steps++;
+        const dx=goal.x-p.x,dy=goal.y-p.y,dz=goal.z-p.z,horizontal=Math.hypot(dx,dz);
+        if(horizontal>1){__below.look(-Math.atan2(dx,-dz),-.45);press('KeyW');}else press('KeyW','keyup');
+        press('Space',dy>.6?'keydown':'keyup');press('ShiftLeft',dy<-.6?'keydown':'keyup');__below.advance(.08);steps++;
         if(state.mission.lightFailed)__below.scan();
       }
       if(n>=limit)milestones.push({stuck:goal,state:__below.snapshot()});
@@ -70,17 +75,18 @@ try{
     go({x:0,y:1,z:0});go(center(0));
     for(let s=4;s<ROUTE_END;s+=4){const f=frameAt(s),p={...f.c};p.x+=f.u.x*1.5;p.y+=f.u.y*1.5;p.z+=f.u.z*1.5;go(p);if([44,96,148,196].includes(s))__below.dropFlare();}
     go(center(ROUTE_END));go({x:30,y:-175,z:-60});go({x:38,y:-205,z:-77});go({x:37,y:-219,z:-93});
-    press('KeyW','keyup');press('ShiftLeft','keyup');__below.advance(1);press('KeyE');__below.advance(3.2);press('KeyE','keyup');const planted=__below.snapshot();
-    go({x:38,y:-205,z:-77});go({x:30,y:-175,z:-60});go(center(ROUTE_END));
+    press('KeyW','keyup');press('ShiftLeft','keyup');press('Space','keyup');__below.advance(1);press('KeyE');__below.advance(3.2);press('KeyE','keyup');const planted=__below.snapshot();
+    go({x:38,y:-205,z:-77});go({x:30,y:-175,z:-60});go({x:0,y:-164,z:-79});go(center(ROUTE_END));
     for(let s=ROUTE_END-4;s>0;s-=4){const f=frameAt(s),p={...f.c};p.x+=f.u.x*1.5;p.y+=f.u.y*1.5;p.z+=f.u.z*1.5;go(p);}
-    go(center(0));go({x:0,y:4,z:0});press('KeyW','keyup');press('ShiftLeft','keyup');return {planted,finished:__below.snapshot(),steps,milestones};
+    go(center(0));go({x:0,y:4,z:0});press('KeyW','keyup');press('ShiftLeft','keyup');press('Space','keyup');return {planted,finished:__below.snapshot(),steps,milestones};
   })()`);
   await writeFile(new URL('../artifacts/flight-report.json',import.meta.url),JSON.stringify(flight,null,2));
   assert.equal(flight.planted.mission.payload,false,'complete flight reaches Queen');
-  assert.equal(flight.finished.mission.outcome,'rescued','complete flight returns up the shaft');
+  assert.equal(flight.finished.mission.extracted,true,'complete flight returns up the shaft');assert.ok(flight.finished.mission.fuse>0&&flight.finished.mission.fuse<30,'return is possible with a tight margin');
+  await evaluate(`__below.advance(${flight.finished.mission.fuse+11})`);assert.equal((await snap()).mission.outcome,'rescued');assert.equal((await snap()).mode,'ended');
   assert.deepEqual(errors,[],'no browser/WebGL errors');
-  const report={result:'PASS',checks:['Stalheart sinkhole','keyboard flight','LiDAR','longer tentacles','six persistent flares','pause freezes flares','vertical shaft','152 m chamber / 1600 eggs','egg laying','no placement marker','two free bomb positions','all endings','restart restocks flares','continuous return flight','console clean'],flight,snapshot:await snap(),errors};
-  await writeFile(new URL('../artifacts/browser-report.json',import.meta.url),JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2));
+  const report={result:'PASS',checks:['third-person ISAO model and rotors','yaw-relative WASD','Shift down / Space up','five Cutis-Soft Ivory creatures','slow Queen movement','65-second fuse','countdown continues after escape','ground tremor and smoke','Stalheart sinkhole','keyboard flight','LiDAR','longer tentacles','six persistent flares','pause freezes flares','vertical shaft','152 m chamber / 1600 eggs','egg laying','no placement marker','two free bomb positions','all endings','restart restocks flares','continuous return flight','console clean'],flight,snapshot:await snap(),errors};
+  await writeFile(new URL('../artifacts/browser-report.json',import.meta.url),JSON.stringify(report,null,2));console.log(JSON.stringify({result:report.result,checks:report.checks,returnMargin:flight.finished.mission.fuse,hull:flight.finished.mission.integrity,milestones:flight.milestones,errors},null,2));
 }finally{
   ws?.close();chrome.kill();await new Promise(r=>server.close(r));await rm(profile,{recursive:true,force:true});
 }

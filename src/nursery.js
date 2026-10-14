@@ -30,7 +30,7 @@ export async function createNursery({scene,body,points,sample,stone,flesh,rand})
   for(let i=0;i<positions.length;i+=3){const x=positions[i],z=positions[i+2],r=Math.hypot(x,z),weight=Math.exp(-Math.pow(r/.037,4));positions[i]=x*(1+.32*weight);positions[i+2]=z*(1+.48*weight);positions[i+1]+=(.011+(positions[i+1]-.046)*.44)*weight;}
   queenGeo.setAttribute('position',new THREE.BufferAttribute(positions,3));queenGeo.setIndex(new THREE.BufferAttribute(new Uint32Array(bin,layout.indices.offset,layout.indices.length),1));queenGeo.computeVertexNormals();
   const queen=new THREE.Group();queen.name='Ovum Queen';queen.position.set(QUEEN.x,QUEEN.baseY,QUEEN.z);queen.scale.setScalar(QUEEN.scale);scene.add(queen);body(queenGeo,flesh,queen,110000);
-  bounds.push({p:new THREE.Vector3(QUEEN.x,QUEEN.y,QUEEN.z),r:new THREE.Vector3(24,32,22)});
+  const queenBound={p:new THREE.Vector3(QUEEN.x,QUEEN.y,QUEEN.z),r:new THREE.Vector3(24,32,22)};bounds.push(queenBound);
   // Egg duct extends from the swollen underside; eggs emerge, fall, and settle.
   const ductCurve=new THREE.CatmullRomCurve3([new THREE.Vector3(0,-230,QUEEN.z+7),new THREE.Vector3(0,-239,QUEEN.z+15),new THREE.Vector3(0,-246,QUEEN.z+20)]);
   const duct=body(new THREE.TubeGeometry(ductCurve,28,1.9,10,false),flesh,scene,6000);
@@ -46,12 +46,16 @@ export async function createNursery({scene,body,points,sample,stone,flesh,rand})
   function update(time){
     const cycle=time%8/8,contraction=Math.sin(Math.PI*clamp((cycle-.1)/.7,0,1))**4;
     queen.scale.set(QUEEN.scale*(1+.016*Math.sin(time*.55)),QUEEN.scale*(1+.026*Math.sin(time*.55)-.025*contraction),QUEEN.scale*(1+.025*contraction));
-    queen.rotation.z=Math.sin(time*.19)*.008;duct.scale.x=1+.14*contraction;
+    // The anchored mother creeps and turns slowly, rather than only breathing.
+    const dx=3.4*Math.sin(time*.045),dz=2.5*Math.sin(time*.037);
+    queen.position.set(QUEEN.x+dx,QUEEN.baseY+.65*Math.sin(time*.09),QUEEN.z+dz);
+    queen.rotation.y=.055*Math.sin(time*.055);queen.rotation.z=Math.sin(time*.13)*.014;
+    queenBound.p.set(QUEEN.x+dx,QUEEN.y,QUEEN.z+dz);duct.position.set(dx,0,dz);duct.scale.x=1+.14*contraction;
     laidCount=Math.floor(time/8)+1;
     for(let i=0;i<laying.length;i++){
       const elapsed=time-i*8,mesh=laying[i];mesh.visible=elapsed>=0;if(elapsed<0)continue;const age=elapsed%(laying.length*8);
       const t=clamp(age/5,0,1),a=i*2.39996,r=3+Math.sqrt(i)*1.3;
-      const x=Math.cos(a)*r*t,z=QUEEN.z+20+Math.sin(a)*r*t;
+      const x=dx+Math.cos(a)*r*t,z=QUEEN.z+dz+20+Math.sin(a)*r*t;
       mesh.position.set(x,THREE.MathUtils.lerp(-242,chamberFloor(x,z)+2.4,t*t),z);
       mesh.scale.setScalar(1.45);mesh.scale.y=1.45*(1+.16*Math.sin(age*2)*Math.exp(-age*.6));mesh.rotation.z=Math.sin(a)*.14*t;
     }
@@ -64,5 +68,5 @@ export async function createNursery({scene,body,points,sample,stone,flesh,rand})
       if(d<1){const n=Math.max(d,.0001);p.set(shape.p.x+x/n*shape.r.x,shape.p.y+(d===0?1:y/n)*shape.r.y,shape.p.z+z/n*shape.r.z);hit=true;}
     }return hit;
   }
-  return {update,constrain,queen,stats:()=>({eggs:EGG_COUNT,laidEggs:laidCount,queenScale:QUEEN.scale,chamberWidth:CHAMBER.r*2})};
+  return {update,constrain,queen,stats:()=>({eggs:EGG_COUNT,laidEggs:laidCount,queenScale:QUEEN.scale,chamberWidth:CHAMBER.r*2,queenPosition:queen.position.toArray(),queenRotation:queen.rotation.y})};
 }

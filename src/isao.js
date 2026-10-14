@@ -1,0 +1,46 @@
+import * as THREE from '../vendor/three.module.js';
+import {GLTFLoader} from '../vendor/GLTFLoader.js';
+import {confine} from './mission.js';
+
+export async function createIsao(scene,camera){
+  const gltf=await new GLTFLoader().loadAsync('./assets/models/isao_birudoron_lod1.glb');
+  const rig=new THREE.Group(),model=new THREE.Group();rig.name='ISAO flight rig';rig.add(model);scene.add(rig);
+  const box=new THREE.Box3().setFromObject(gltf.scene),size=box.getSize(new THREE.Vector3()),center=box.getCenter(new THREE.Vector3());
+  const scale=2.25/Math.max(size.x,size.z);gltf.scene.position.sub(center);model.scale.setScalar(scale);model.rotation.y=Math.PI;model.add(gltf.scene);
+  gltf.scene.traverse(node=>{if(!node.isMesh)return;node.material=node.material.clone();if(node.material.emissive&&node.material.emissive.getHex()===0)node.material.emissive.setHex(0x0d222b);});
+  const mixer=new THREE.AnimationMixer(gltf.scene);const actions=new Map();
+  for(const clip of gltf.animations)actions.set(clip.name,mixer.clipAction(clip));
+  actions.get('Rotor_Cycle')?.play();let face=null;
+  const fill=new THREE.PointLight(0xd7e7d1,1.7,3,1.2);rig.add(fill);fill.position.set(0,.4,0);
+  const payload=new THREE.Mesh(new THREE.CylinderGeometry(.15,.15,.65,12),new THREE.MeshStandardMaterial({color:0x96916c,roughness:.55,metalness:.35}));payload.rotation.z=Math.PI/2;payload.position.set(0,-.58,0);rig.add(payload);
+  const back=new THREE.Vector3(),desired=new THREE.Vector3(),target=new THREE.Vector3(),test=new THREE.Vector3(),last=new THREE.Vector3(),candidate=new THREE.Vector3(),best=new THREE.Vector3();
+  function clipBoom(position,goal){
+    last.copy(position);
+    for(let i=1;i<=12;i++){test.lerpVectors(position,goal,i/12);const x=test.x,y=test.y,z=test.z;confine(test,.18);if(Math.hypot(test.x-x,test.y-y,test.z-z)>.05)break;last.copy(test);}
+    return last;
+  }
+  let initialized=false;
+  function update(time,dt,position,yaw,orbitPitch,flight,mission){
+    rig.position.copy(position);rig.rotation.set(flight.pitch,yaw,flight.roll,'YXZ');payload.visible=mission.payload;
+    const emotion=mission.integrity<35?'Emotion_Alarm':mission.lightFailed?'Emotion_Worried':!mission.payload?'Emotion_Determined':'Emotion_Neutral';
+    if(emotion!==face){if(face)actions.get(face)?.stop();actions.get(emotion)?.play();face=emotion;}
+    actions.get('Rotor_Cycle')?.setEffectiveTimeScale(1+Math.hypot(flight.velocity.x,flight.velocity.y,flight.velocity.z)*.055);mixer.update(Math.max(0,dt));
+    back.set(Math.sin(yaw)*Math.cos(orbitPitch),-Math.sin(orbitPitch),Math.cos(yaw)*Math.cos(orbitPitch));
+    desired.copy(position).addScaledVector(back,4.9);desired.y+=.5;
+    // Shorten the boom where it would pass through the cave wall.
+    desired.copy(clipBoom(position,desired));
+    if(desired.distanceTo(position)<1.8){
+      best.copy(desired);
+      for(const turn of [0,.8,-.8,1.6,-1.6]){
+        candidate.set(Math.sin(yaw+turn)*4,-1.1,Math.cos(yaw+turn)*4).add(position);const result=clipBoom(position,candidate);
+        if(result.distanceTo(position)>best.distanceTo(position))best.copy(result);
+      }
+      desired.copy(best);
+    }
+    if(!initialized){camera.position.copy(desired);initialized=true;}else camera.position.lerp(desired,1-Math.exp(-dt*10));
+    const before=camera.position.clone();confine(camera.position,.18);if(before.distanceTo(camera.position)>1)camera.position.copy(desired);
+    target.copy(position);target.y+=.25;camera.lookAt(target);
+  }
+  function reset(){initialized=false;face=null;mixer.setTime(0);}
+  return {rig,update,reset,stats:()=>({isaoModel:'isao_birudoron_lod1',rotorClip:actions.has('Rotor_Cycle'),rotorRotation:gltf.scene.getObjectByName('ROTOR_FL_SPIN')?.quaternion.toArray(),cameraDistance:camera.position.distanceTo(rig.position)})};
+}

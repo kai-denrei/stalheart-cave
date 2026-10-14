@@ -32,10 +32,15 @@ test('exactly six flares, no spending after the ending, and a full restock on re
   const reset=createMission();assert.equal(reset.flares,6);reset.outcome='lost';assert.equal(useFlare(reset),false);assert.equal(reset.flares,6);
 });
 test('only reaching the real surface rescues ISAO; fuse and hull loss preserve all endings',()=>{
-  const m=createMission();tickMission(m,3,placement,true);assert.deepEqual(tickMission(m,.1,center(3),false),[]);assert.deepEqual(tickMission(m,.1,{x:0,y:3,z:0},false),['rescued']);
-  const sacrificed=createMission();tickMission(sacrificed,3,placement,true);sacrificed.integrity=0;assert.ok(tickMission(sacrificed,.1,center(100),false).includes('sacrifice'));
+  const m=createMission();tickMission(m,3,placement,true);assert.deepEqual(tickMission(m,.1,center(3),false),[]);assert.deepEqual(tickMission(m,.1,{x:0,y:3,z:0},false),['extracted']);assert.equal(m.outcome,null);assert.equal(m.detonated,false);
+  assert.deepEqual(tickMission(m,FUSE,{x:0,y:3,z:0},false),['detonated']);assert.equal(m.outcome,'rescued');
+  const sacrificed=createMission();tickMission(sacrificed,3,placement,true);sacrificed.integrity=0;assert.ok(tickMission(sacrificed,.1,center(100),false).includes('signal-lost'));assert.equal(sacrificed.outcome,null);tickMission(sacrificed,FUSE,center(100),false);assert.equal(sacrificed.outcome,'sacrifice');
   const lost=createMission();lost.integrity=0;assert.deepEqual(tickMission(lost,.1,center(10),false),['lost']);
-  const timed=createMission();tickMission(timed,3,placement,true);assert.ok(tickMission(timed,FUSE,center(100),false).includes('sacrifice'));
+  const timed=createMission();tickMission(timed,3,placement,true);assert.ok(tickMission(timed,FUSE,center(100),false).includes('detonated'));assert.equal(timed.outcome,'sacrifice');
+});
+test('arming starts a fresh fuse and reaching the surface at zero is too late',()=>{
+  const m=createMission();tickMission(m,3,placement,true);assert.equal(m.fuse,FUSE);assert.equal(m.detonated,false);
+  const events=tickMission(m,FUSE,{x:0,y:3,z:0},false);assert.deepEqual(events,['detonated']);assert.equal(m.outcome,'sacrifice');
 });
 test('the full centerline is traversable in both directions without a collision correction',()=>{
   for(let s=0;s<=ROUTE_END;s+=.23){const c=center(s);assert.equal(confine(c),false,`route blocked at ${s}`);}

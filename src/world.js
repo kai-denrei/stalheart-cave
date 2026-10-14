@@ -2,6 +2,9 @@ import * as THREE from '../vendor/three.module.js';
 import { center, radius, frameAt, ringPoint, ROUTE_END, SHAFT_TOP, CHAMBER_LIP, chamberFloor, smooth, pointSegmentDistance } from './mission.js';
 import {createSinkholeEntrance} from './sinkhole.js';
 import {createNursery} from './nursery.js';
+import {createIsao} from './isao.js';
+import {createTunnelCreatures} from './creatures.js';
+import {createDetonation} from './detonation.js';
 import {createFlares} from './flares.js';
 
 const TAU=Math.PI*2;
@@ -19,7 +22,7 @@ export async function createWorld(canvas){
   const scene=new THREE.Scene();scene.background=new THREE.Color(0x020504);
   scene.fog=new THREE.FogExp2(0x020504,.035);
   const camera=new THREE.PerspectiveCamera(72,innerWidth/innerHeight,.08,340);
-  camera.rotation.order='YXZ';scene.add(camera);
+  camera.rotation.order='YXZ';scene.add(camera);const player=new THREE.Vector3();
   const uniforms={uTime:{value:0},uLidar:{value:0},uScanTime:{value:-100},uScanOrigin:{value:new THREE.Vector3()},uPreview:{value:0},uFlarePositions:{value:Array.from({length:6},()=>new THREE.Vector3())},uFlareStrengths:{value:Array(6).fill(0)}};
   const surfaces=[];
   function material(color,roughness=.93,rock=false){
@@ -104,6 +107,8 @@ export async function createWorld(canvas){
   const cave=new THREE.BufferGeometry();cave.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));cave.setIndex(indices);cave.computeVertexNormals();body(cave,stone,scene,200000);
   const nursery=await createNursery({scene,body,points,sample,stone,flesh,rand});
   const flares=createFlares(scene,uniforms);
+  const isao=await createIsao(scene,camera);
+  const creatures=createTunnelCreatures({scene,body,points,material});
 
   // Only surface light fades in the throat; darkness below still requires the lamp.
   const surfaceHemi=new THREE.HemisphereLight(0x7097bb,0x0a1018,.9);scene.add(surfaceHemi);
@@ -114,8 +119,8 @@ export async function createWorld(canvas){
   const turret=new THREE.Mesh(new THREE.BoxGeometry(3.6,1.2,3),metal);turret.position.y=1.7;tank.add(turret);
   for(const x of [-5.7,5.7]){const skirt=new THREE.Mesh(new THREE.BoxGeometry(1.8,1.4,7),metal);skirt.position.set(x,-.5,0);tank.add(skirt);}
   const barrel=new THREE.Mesh(new THREE.CylinderGeometry(.18,.28,5,8),metal);barrel.rotation.x=Math.PI/2;barrel.position.set(0,1.8,-3);tank.add(barrel);
-  const lamp=new THREE.SpotLight(0xd3dec0,110,42,Math.PI*.24,.7,1.35);camera.add(lamp);lamp.position.set(.12,-.12,0);camera.add(lamp.target);lamp.target.position.set(0,-.05,-10);
-  const fill=new THREE.PointLight(0x8da88a,.5,4);camera.add(fill);
+  const lamp=new THREE.SpotLight(0xd3dec0,110,42,Math.PI*.24,.7,1.35);scene.add(lamp, lamp.target);
+  const blast=createDetonation(scene,entrance,tank);
 
   const limbs=[];
   function addLimb(s,angle,phase){
@@ -146,26 +151,26 @@ export async function createWorld(canvas){
       l.geo.attributes.position.needsUpdate=true;l.geo.computeVertexNormals();
     }
   }
-  const arm=new THREE.Group();camera.add(arm);arm.position.set(.69,-.65,-1.2);arm.rotation.z=-.22;arm.scale.setScalar(.48);
-  const casing=new THREE.Mesh(new THREE.BoxGeometry(.19,.25,.56),new THREE.MeshStandardMaterial({color:0x69776e,roughness:.6}));arm.add(casing);
-  const nozzle=new THREE.Mesh(new THREE.CylinderGeometry(.05,.08,.34,10),new THREE.MeshStandardMaterial({color:0x948e65,metalness:.5,roughness:.4}));nozzle.rotation.x=Math.PI/2;nozzle.position.set(0,-.05,-.4);arm.add(nozzle);
-  const tip=new THREE.Mesh(new THREE.TorusGeometry(.047,.008,5,12),new THREE.MeshBasicMaterial({color:0xb4b590}));tip.position.set(0,-.05,-.574);arm.add(tip);
-  const payload=new THREE.Mesh(new THREE.CylinderGeometry(.18,.18,.75,12),metal);payload.rotation.x=Math.PI/2;payload.position.set(-.6,-.1,.02);arm.add(payload);
   const drop=new THREE.Mesh(new THREE.CylinderGeometry(.35,.35,1.2,12),metal);drop.visible=false;scene.add(drop);
   const dropGlow=new THREE.Mesh(new THREE.SphereGeometry(.08,8,6),new THREE.MeshBasicMaterial({color:0xf15a3a}));dropGlow.position.y=.61;drop.add(dropGlow);
   let dropTime=null,dropFloor=0;
   const dustPos=new Float32Array(1800*3);
   for(let i=0;i<1800;i++){const s=rand()*ROUTE_END,f=frameAt(s),a=rand()*TAU,r=rand()*radius(s)*.85;dustPos[i*3]=f.c.x+r*(f.u.x*Math.cos(a)+f.v.x*Math.sin(a));dustPos[i*3+1]=f.c.y+r*(f.u.y*Math.cos(a)+f.v.y*Math.sin(a));dustPos[i*3+2]=f.c.z+r*(f.u.z*Math.cos(a)+f.v.z*Math.sin(a));}
   const dust=new THREE.Points(new THREE.BufferGeometry().setAttribute('position',new THREE.BufferAttribute(dustPos,3)),new THREE.PointsMaterial({color:0x7f9877,size:.025,transparent:true,opacity:.27}));scene.add(dust);
-  function scan(time){uniforms.uScanTime.value=time;uniforms.uScanOrigin.value.copy(camera.position);}
-  function update(time,mission,preview=false){
-    uniforms.uTime.value=time;uniforms.uLidar.value=mission.lidar&&!preview?1:0;uniforms.uPreview.value=0;
+  function scan(time){uniforms.uScanTime.value=time;uniforms.uScanOrigin.value.copy(player);}
+  function update(time,mission,preview=false,flightData=null){
+    const cinematic=!!flightData?.cinematic;
+    if(flightData)isao.update(time,flightData.dt,player,flightData.yaw,flightData.pitch,flightData.flight,mission);
+    isao.rig.visible=!preview&&(!cinematic||mission.extracted);
+    if(cinematic){const state=blast.stats(),age=state.detonationAge,q=flightData.reducedMotion||!state.detonationActive?0:Math.max(0,1-age/4)*.13;camera.position.set(31+Math.sin(time*31)*q,29+Math.cos(time*29)*q,39);camera.lookAt(0,-3,0);}
+    uniforms.uTime.value=time;uniforms.uLidar.value=mission.lidar&&!preview&&!cinematic?1:0;uniforms.uPreview.value=0;
     const surface=smooth(-22,-2,camera.position.y);surfaceHemi.intensity=surface*.9;surfaceSun.intensity=surface*1.3;
     scene.background.setRGB(.002+surface*.003,.005+surface*.004,.004+surface*.012);
     scene.fog.density=(mission.lidar||preview)? .002 : .035*(1-surface)+.005;
-    lamp.intensity=mission.lightFailed||preview?0:110*((camera.position.z<-25&&Math.sin(time*30)>.35)?.1:1);
-    fill.intensity=mission.lightFailed?.04:.4;arm.visible=!preview;payload.visible=mission.payload;dust.visible=!mission.lidar&&!preview;
-    animateLimbs(time);nursery.update(time);flares.update(time,camera);
+    lamp.position.copy(player);lamp.position.y+=.25;lamp.target.position.copy(player).add(new THREE.Vector3(-Math.sin(flightData?.yaw||0)*10,Math.sin(flightData?.pitch||0)*10,-Math.cos(flightData?.yaw||0)*10));
+    lamp.intensity=mission.lightFailed||preview||cinematic?0:110*((player.z<-25&&Math.sin(time*30)>.35)?.1:1);
+    dust.visible=!mission.lidar&&!preview&&!cinematic;
+    animateLimbs(time);nursery.update(time);creatures.update(time);flares.update(time,camera);blast.update(time,flightData?.reducedMotion);
     drop.visible=!mission.payload;
     if(mission.bombPosition){
       if(dropTime===null){dropTime=time;dropFloor=chamberFloor(mission.bombPosition.x,mission.bombPosition.z)+.7;}
@@ -173,10 +178,10 @@ export async function createWorld(canvas){
     }
   }
   function contacts(p){
-    for(const l of limbs){if(p.distanceTo(l.root)>l.length+2)continue;for(let i=1;i<l.path.length;i++)if(pointSegmentDistance(p,l.path[i-1],l.path[i])<.62+.7*(1-i/l.path.length))return l;}return null;
+    for(const l of limbs){if(p.distanceTo(l.root)>l.length+2)continue;for(let i=1;i<l.path.length;i++)if(pointSegmentDistance(p,l.path[i-1],l.path[i])<.62+.7*(1-i/l.path.length))return l;}return creatures.contacts(p);
   }
-  function reset(){flares.reset();dropTime=null;drop.visible=false;uniforms.uScanTime.value=-100;}
+  function reset(){flares.reset();isao.reset();creatures.reset();blast.reset();dropTime=null;drop.visible=false;uniforms.uScanTime.value=-100;}
   function render(){renderer.render(scene,camera);}
   function resize(){camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);}
-  return {camera,renderer,scene,update,render,resize,scan,contacts,constrainBodies:nursery.constrain,reset,uniforms,dropFlare:flares.drop,stats:()=>({...nursery.stats(),flares:flares.stats(),sinkhole:entrance.source,shaftDepth:SHAFT_TOP-CHAMBER_LIP,tentacles:limbs.length})};
+  return {camera,player,renderer,scene,update,render,resize,scan,contacts,constrainBodies:nursery.constrain,reset,uniforms,dropFlare:flares.drop,startDetonation:blast.start,stats:()=>({...nursery.stats(),...isao.stats(),...creatures.stats(),...blast.stats(),flares:flares.stats(),sinkhole:entrance.source,shaftDepth:SHAFT_TOP-CHAMBER_LIP,tentacles:limbs.length})};
 }

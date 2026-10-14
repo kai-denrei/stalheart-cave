@@ -40,6 +40,58 @@
     {
       "path": "src/stalheart/looks.js",
       "sha256": "963bc18da4c9ded14d7a29caa1f02582bc23f58129de43f5d0a74ced9d577d1d"
+    },
+    {
+      "path": "assets/models/isao_birudoron_lod1.glb",
+      "sha256": "2e9a389a4729f625fa9a7fd018bad8b78db86ac3254ebdcff9df230fba344088"
+    },
+    {
+      "path": "vendor/GLTFLoader.js",
+      "sha256": "1f9b02acfbf219a6ebb77f09e355500449a3ba9e6a77d87e0de72c0b9315ea4e"
+    },
+    {
+      "path": "vendor/BufferGeometryUtils.js",
+      "sha256": "3a6701d824adfe05dc28c09b6c1d64aeab9a183bc3b944d85f15f596e5c6c2b3"
+    },
+    {
+      "path": "vendor/ConvexHull.js",
+      "sha256": "be3c56516aa11537312a3307121cd8bb4ab78fdebc56832d8a45d879b3758757"
+    },
+    {
+      "path": "src/stalheart/pearl-enemies.js",
+      "sha256": "031c0f09fd529e44dc63c31499a19534a3a9fe2d27a96e8d2d3d8525c2b98275"
+    },
+    {
+      "path": "src/fx/cutis-maku/LICENSE",
+      "sha256": "8b1ba204bb69a0ade2bfcf65ef294a920f6bb361b317dba43c7ef29d96332b9b"
+    },
+    {
+      "path": "src/fx/cutis-maku/config.js",
+      "sha256": "9466b27c11962e9e2697e0534c8ff5b4901db5f98795a94bcf223301885f5c38"
+    },
+    {
+      "path": "src/fx/cutis-maku/convex.js",
+      "sha256": "ad6daa1a4fc80dcbb46fabbea55c0e34a15c083b853eb0810dc08ab422f30532"
+    },
+    {
+      "path": "src/fx/cutis-maku/deform.js",
+      "sha256": "796f2b852ec8b287e091d2efbe2086136f769d8f6190d89aff4b582e96643db7"
+    },
+    {
+      "path": "src/fx/cutis-maku/geometry.js",
+      "sha256": "978518d74b10321bed9bc12d96f6f553b54c4a04c2d8a71bc2fe06b2a29ac086"
+    },
+    {
+      "path": "src/fx/cutis-maku/material.js",
+      "sha256": "3c48d26de01dfcd1f60656d1f02b001f28722683b067ec4ad40435266b51be20"
+    },
+    {
+      "path": "src/fx/cutis-maku/shaders.js",
+      "sha256": "ad24a888c7429394decbc523e43839959d9f4b9ae74290d4f3b8f89333c10b75"
+    },
+    {
+      "path": "src/fx/cutis-maku/swarm.js",
+      "sha256": "db96aa70e1a8228f4086ecb12cf4bbf8eb2588ad2bb4985b4086f49964646db5"
     }
   ],
   "sinkholeAdapterSource": {

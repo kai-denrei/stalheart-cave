@@ -9,7 +9,7 @@
 </head>
 <body>
   <main id="app">
-    <canvas id="view" aria-label="First-person view from ISAO's survey camera"></canvas>
+    <canvas id="view" aria-label="Third-person chase view of ISAO"></canvas>
     <div class="crt" aria-hidden="true"></div><div id="impact" aria-hidden="true"></div>
     <div class="frame-corner tl"></div><div class="frame-corner tr"></div><div class="frame-corner bl"></div><div class="frame-corner br"></div>
     <header class="topline"><a class="wordmark" href="./">STÅLHEART <span>/ BELOW</span></a><div class="top-right"><span class="live-dot"></span> LOCAL FEED <span class="divider">/</span> <span id="clock">00:00:00</span><button id="sound" aria-label="Unmute audio">AUDIO OFF</button></div></header>
@@ -26,7 +26,7 @@
         <p class="brief-note">Find the source. Plant the charge. Bring him home.</p>
       </div>
       <aside class="brief-side"><div class="vertical-rule"></div><span class="label">SINKHOLE 07</span><strong>NO RETURN<br>TELEMETRY</strong><p>Last probe lost at −47 m.<br>Survey array on standby.</p><div class="mini-wave" aria-hidden="true">▁▂▁▁▃▆▂▁▃▁▂▅▁▁▂▇▃▁▂▁</div><span class="label">SEISMIC ACTIVITY PERSISTS</span></aside>
-      <footer class="brief-footer"><span>EXPERIMENTAL FLIGHT BUILD <b>0.2</b></span><span>HEADPHONES RECOMMENDED <span class="dim">/</span> KEYBOARD + MOUSE</span></footer>
+      <footer class="brief-footer"><span>EXPERIMENTAL FLIGHT BUILD <b>0.3</b></span><span>HEADPHONES RECOMMENDED <span class="dim">/</span> KEYBOARD + MOUSE</span></footer>
     </section>
 
     <section id="hud" hidden aria-label="Flight instruments">
@@ -36,12 +36,12 @@
       <div id="reticle" aria-hidden="true"><i></i><i></i><i></i><i></i><span>+</span></div>
       <div id="interaction" hidden><span id="interaction-text">PLACING CHARGE — HOLD E</span><div><i id="arm-bar"></i></div></div>
       <div id="alert" role="status"></div>
-      <div id="countdown" hidden><span class="label">DETONATION IN</span><strong id="timer">01:45</strong><span>GET ISAO TO THE SURFACE</span></div>
+      <div id="countdown" hidden><span class="label">DETONATION IN</span><strong id="timer">01:05</strong><span>GET ISAO TO THE SURFACE</span></div>
       <div id="comms" aria-live="polite"><div id="isao-face" aria-hidden="true"><span>▪ ▪</span><span>━</span></div><div><span class="label" id="speaker">ISAO</span><p id="dialogue"></p></div></div>
-      <div class="hud-bottom"><div class="controls"><span><kbd>W A S D</kbd> FLY</span><span><kbd>MOUSE / ← → ↑ ↓</kbd> LOOK</span><span><kbd>SPACE / C</kbd> RISE / LOWER</span><span><kbd>SHIFT</kbd> BOOST</span><span><kbd>Q</kbd> SCAN</span><span><kbd>F</kbd> FLARE</span><span><kbd>E</kbd> PLACE</span><span><kbd>ESC</kbd> PAUSE</span></div><div id="depth-key" hidden><span>NEAR</span><i></i><span>FAR</span></div><div class="coordinates"><span id="bearing">HDG 000</span><span id="range">SURVEY / SOURCE UNKNOWN</span><span id="link">LINK 99%</span></div></div>
+      <div class="hud-bottom"><div class="controls"><span><kbd>W A S D</kbd> FLY</span><span><kbd>MOUSE / ← → ↑ ↓</kbd> LOOK</span><span><kbd>SPACE / SHIFT</kbd> RISE / LOWER</span><span><kbd>Q</kbd> SCAN</span><span><kbd>F</kbd> FLARE</span><span><kbd>E</kbd> PLACE</span><span><kbd>ESC</kbd> PAUSE</span></div><div id="depth-key" hidden><span>NEAR</span><i></i><span>FAR</span></div><div class="coordinates"><span id="bearing">HDG 000</span><span id="range">SURVEY / SOURCE UNKNOWN</span><span id="link">LINK 99%</span></div></div>
     </section>
 
-    <section id="pause" class="modal" hidden><div class="modal-panel"><p class="eyebrow">PILOT LINK / SUSPENDED</p><h2>HOLDING<br>POSITION.</h2><p>ISAO is waiting for you.</p><button id="resume" class="primary">RESUME FLIGHT <span>↗</span></button><button id="restart-pause" class="text-button">RESTART EXPEDITION</button><p class="help">WASD to fly · Mouse or arrow keys to look<br>Space / C to rise / lower · Shift to boost<br>Q to switch to LiDAR / send a wide scan<br>F to drop one of six route-marking flares<br>Hold E to place the bomb close to the Queen<br>Esc or P to pause · M to toggle sound</p></div></section>
+    <section id="pause" class="modal" hidden><div class="modal-panel"><p class="eyebrow">PILOT LINK / SUSPENDED</p><h2>HOLDING<br>POSITION.</h2><p>ISAO is waiting for you.</p><button id="resume" class="primary">RESUME FLIGHT <span>↗</span></button><button id="restart-pause" class="text-button">RESTART EXPEDITION</button><p class="help">WASD to fly · Mouse or arrow keys to look<br>Space to climb · Shift to descend<br>WASD controls horizontal flight; mouse controls heading/view<br>Q to switch to LiDAR / send a wide scan<br>F to drop one of six route-marking flares<br>Hold E to place the bomb close to the Queen<br>Esc or P to pause · M to toggle sound</p></div></section>
     <section id="ending" class="modal" hidden><div class="modal-panel"><p id="ending-kicker" class="eyebrow">MISSION COMPLETE</p><h2 id="ending-title">WELCOME<br>HOME.</h2><p id="ending-copy"></p><div id="ending-stats"></div><button id="restart" class="primary">FLY AGAIN <span>↗</span></button></div></section>
     <div id="load-error" hidden role="alert"></div>
   </main>

@@ -14,6 +14,10 @@ All assets are frozen local copies. No runtime hotlinks or source repositories a
 | `src/stalheart/sinkhole-shape.js` | Exact copy of Stalheart’s shared sinkhole boundary and bowl contract |
 | `src/stalheart/looks.js` | Exact copy of Stalheart’s look definitions; entrance uses `tronColors` |
 | `src/sinkhole.js` | Open-bowl adapter extracted from `../stalheart/src/sinkhole-terrain.js`; same 192 × 24 bowl, UVs, 36 rim rocks, and seven cyan contours; bottom cap removed for flight |
+| `assets/models/isao_birudoron_lod1.glb` | Actual ISAO-Birudorōn model and its rotor/face clips from `../stalheart/assets/models/isao/` |
+| `vendor/GLTFLoader.js`, `BufferGeometryUtils.js`, `ConvexHull.js` | Three.js r160 utilities copied from Stalheart (MIT) |
+| `src/fx/cutis-maku/` | Cutis kit copied from `../stalheart-bestiary/src/fx/cutis-maku/`, itself ported from Jelly-Baby; GPL-3.0 license included in that directory |
+| `src/stalheart/pearl-enemies.js` | Exact bestiary tier definitions; the tunnel inhabitants use `Cutis-Soft Ivory` |
 | `scripts/chrome-proc.mjs` | Stalheart's owned-process browser lifecycle utility |
 
 Hashes are recorded in `assets.lock.json`. The game assets retain their source ownership; this experiment does not grant a new redistribution license. The prototype was requested for the owner's existing Stalheart world and local creature library.

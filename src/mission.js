@@ -1,7 +1,7 @@
 import {rimRadius, bowlHeight, SINKHOLE_INNER, SINKHOLE_DEPTH} from './stalheart/sinkhole-shape.js';
 
 // Metres and seconds. The same geometry contract drives rendering and flight.
-export const FUSE=105, FLARE_COUNT=6, EGG_COUNT=1600, HOLE_SCALE=24;
+export const FUSE=65, FLARE_COUNT=6, EGG_COUNT=1600, HOLE_SCALE=24;
 export const CHAMBER={x:0,y:-208,z:-79,r:76,ry:58,opening:.1};
 export const QUEEN={x:0,y:-219,z:-101,scale:620,baseY:-254};
 export const START={x:0,y:11,z:23};
@@ -50,16 +50,16 @@ export function nearestRoute(p){
 export function chamberFloor(x,z){const q=((x-CHAMBER.x)/CHAMBER.r)**2+((z-CHAMBER.z)/CHAMBER.r)**2;return CHAMBER.y-CHAMBER.ry*Math.sqrt(Math.max(0,1-q));}
 export function inChamber(p,margin=0){return ((p.x-CHAMBER.x)/(CHAMBER.r-margin))**2+((p.y-CHAMBER.y)/(CHAMBER.ry-margin))**2+((p.z-CHAMBER.z)/(CHAMBER.r-margin))**2<=1;}
 export function surfaceHeight(x,z){const a=Math.atan2(z,x),r=Math.hypot(x,z)/(HOLE_SCALE*rimRadius(a));if(r>=1)return 0;if(r<SINKHOLE_INNER)return -Infinity;return HOLE_SCALE*bowlHeight(a,r);}
-export function confine(p){
+export function confine(p,margin=.65){
   if(p.y>=-HOLE_SCALE*SINKHOLE_DEPTH+.4){
-    const floor=surfaceHeight(p.x,p.z)+.65;
+    const floor=surfaceHeight(p.x,p.z)+margin;
     const old={...p};p.y=clamp(p.y,floor,32);p.x=clamp(p.x,-65,65);p.z=clamp(p.z,-65,65);return distance(old,p)>.001;
   }
   const n=nearestRoute(p),f=frameAt(n.s),dx=p.x-n.c.x,dy=p.y-n.c.y,dz=p.z-n.c.z;
-  const a=Math.atan2(dx*f.v.x+dy*f.v.y+dz*f.v.z,dx*f.u.x+dy*f.u.y+dz*f.u.z),limit=wallRadius(n.s,a)-.65;
-  if(n.d<=limit||inChamber(p,.65))return false;
+  const a=Math.atan2(dx*f.v.x+dy*f.v.y+dz*f.v.z,dx*f.u.x+dy*f.u.y+dz*f.u.z),limit=wallRadius(n.s,a)-margin;
+  if(n.d<=limit||inChamber(p,margin))return false;
   const tube={x:n.c.x+dx/n.d*limit,y:n.c.y+dy/n.d*limit,z:n.c.z+dz/n.d*limit};
-  const rx=CHAMBER.r-.65,ry=CHAMBER.ry-.65,ex=(p.x-CHAMBER.x)/rx,ey=(p.y-CHAMBER.y)/ry,ez=(p.z-CHAMBER.z)/rx,k=Math.hypot(ex,ey,ez);
+  const rx=CHAMBER.r-margin,ry=CHAMBER.ry-margin,ex=(p.x-CHAMBER.x)/rx,ey=(p.y-CHAMBER.y)/ry,ez=(p.z-CHAMBER.z)/rx,k=Math.hypot(ex,ey,ez);
   const chamber={x:CHAMBER.x+ex/k*rx,y:CHAMBER.y+ey/k*ry,z:CHAMBER.z+ez/k*rx};
   const correction=distance(p,tube)<distance(p,chamber)?tube:chamber;
   p.x=correction.x;p.y=correction.y;p.z=correction.z;return true;
@@ -67,8 +67,8 @@ export function confine(p){
 export function pointSegmentDistance(p,a,b){const dx=b.x-a.x,dy=b.y-a.y,dz=b.z-a.z;const t=clamp(((p.x-a.x)*dx+(p.y-a.y)*dy+(p.z-a.z)*dz)/(dx*dx+dy*dy+dz*dz||1),0,1);return Math.hypot(p.x-a.x-t*dx,p.y-a.y-t*dy,p.z-a.z-t*dz);}
 // A broad region around the Queen, never a world-space waypoint or exact socket.
 export function closeToQueen(p){return p.y<QUEEN.y+9&&p.y>QUEEN.baseY-8&&Math.hypot(p.x-QUEEN.x,p.z-QUEEN.z)<49&&inChamber(p,1);}
-export function createMission(){return {phase:'descent',integrity:100,lightFailed:false,lidar:false,payload:true,armProgress:0,bombPosition:null,fuse:FUSE,time:0,nursery:false,shaftSeen:false,flares:FLARE_COUNT,outcome:null};}
-export function useFlare(m){if(m.outcome||m.flares<=0)return false;m.flares--;return true;}
+export function createMission(){return {phase:'descent',integrity:100,lightFailed:false,lidar:false,payload:true,armProgress:0,bombPosition:null,fuse:FUSE,time:0,nursery:false,shaftSeen:false,flares:FLARE_COUNT,extracted:false,signalLost:false,detonated:false,outcome:null};}
+export function useFlare(m){if(m.outcome||m.extracted||m.signalLost||m.flares<=0)return false;m.flares--;return true;}
 export function tickMission(m,dt,p,arming){
   if(m.outcome)return [];const events=[];m.time+=dt;
   if(!m.lightFailed&&p.z<-30&&p.y<-25){m.lightFailed=true;events.push('blackout');}
@@ -76,7 +76,13 @@ export function tickMission(m,dt,p,arming){
   if(!m.nursery&&p.y<CHAMBER_LIP-5){m.nursery=true;m.phase='nursery';events.push('nursery');}
   if(m.payload&&closeToQueen(p)&&arming){m.armProgress=Math.min(1,m.armProgress+dt/3);if(m.armProgress>=1){m.payload=false;m.bombPosition={x:p.x,y:p.y-.8,z:p.z};m.phase='escape';events.push('armed');}}
   else if(m.payload)m.armProgress=Math.max(0,m.armProgress-dt*.5);
-  if(!m.payload){m.fuse=Math.max(0,m.fuse-dt);if(m.integrity<=0||m.fuse<=0){m.outcome='sacrifice';events.push('sacrifice');}else if(p.y>2&&Math.hypot(p.x,p.z)<38){m.outcome='rescued';events.push('rescued');}}
+  if(!m.payload){
+    // Arming finishes at the end of this tick; the fuse starts on the next one.
+    if(!events.includes('armed'))m.fuse=Math.max(0,m.fuse-dt);
+    if(m.fuse>0&&!m.extracted&&!m.signalLost&&m.integrity>0&&p.y>2&&Math.hypot(p.x,p.z)<38){m.extracted=true;m.phase='surface';events.push('extracted');}
+    if(!m.extracted&&!m.signalLost&&m.integrity<=0){m.signalLost=true;events.push('signal-lost');}
+    if(m.fuse<=0){m.detonated=true;m.outcome=m.extracted?'rescued':'sacrifice';events.push('detonated');}
+  }
   else if(m.integrity<=0){m.outcome='lost';events.push('lost');}
   return events;
 }
