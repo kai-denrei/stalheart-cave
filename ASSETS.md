@@ -1,0 +1,31 @@
+# Local asset provenance
+
+All assets are frozen local copies. No runtime hotlinks or source repositories are modified.
+
+| Local file | Source |
+| --- | --- |
+| `vendor/three.module.js` | `../stalheart/vendor/three.module.js`, Three.js r160, MIT (license below) |
+| `assets/fonts/ShareTechMono.woff2` | Stalheart's font bundle; Share Tech Mono, SIL Open Font License |
+| `assets/fonts/VT323.woff2` | Stalheart's font bundle; VT323, SIL Open Font License |
+| `assets/models/ovum.bin`, `ovum.json` | `../Jelly-Baby/src/assets/model/ovum.*`, manifest source `ovum-spider-v3`; used as the nursery mother |
+| `assets/audio/sinkhole_quake.mp3` | Stalheart's existing sinkhole sound |
+| `assets/audio/blast_fire.mp3` | Stalheart's existing explosion sound |
+| `assets/audio/rotor_spin.wav` | Stalheart's rotor sound, retained for comparison; current flight loop is synthesized |
+| `src/stalheart/sinkhole-shape.js` | Exact copy of Stalheart’s shared sinkhole boundary and bowl contract |
+| `src/stalheart/looks.js` | Exact copy of Stalheart’s look definitions; entrance uses `tronColors` |
+| `src/sinkhole.js` | Open-bowl adapter extracted from `../stalheart/src/sinkhole-terrain.js`; same 192 × 24 bowl, UVs, 36 rim rocks, and seven cyan contours; bottom cap removed for flight |
+| `scripts/chrome-proc.mjs` | Stalheart's owned-process browser lifecycle utility |
+
+Hashes are recorded in `assets.lock.json`. The game assets retain their source ownership; this experiment does not grant a new redistribution license. The prototype was requested for the owner's existing Stalheart world and local creature library.
+
+## Three.js license
+
+The MIT License
+
+Copyright © 2010–2023 three.js authors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

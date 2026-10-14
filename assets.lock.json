@@ -1,0 +1,49 @@
+{
+  "snapshot": "2026-10-14",
+  "files": [
+    {
+      "path": "vendor/three.module.js",
+      "sha256": "76dea8151bc9352aef3528b4262e249b2604f62543828328db978d060d61a495"
+    },
+    {
+      "path": "assets/fonts/ShareTechMono.woff2",
+      "sha256": "73b87eb7b02dfec4cb1ddfabad6e625d9c77b3c81015064420de88d8dd04816c"
+    },
+    {
+      "path": "assets/fonts/VT323.woff2",
+      "sha256": "043a60145af2ddbcd0a6452625cb0bfc4e18b222c76dcd1d4a0106715472faba"
+    },
+    {
+      "path": "assets/models/ovum.bin",
+      "sha256": "9774993bd7f64b54944b5ea99c13153dd52477c736deec4e89ba1a49b3d5ecf1"
+    },
+    {
+      "path": "assets/models/ovum.json",
+      "sha256": "53df21c4da48047d73786de167af9844fe921c539c2b92b39e4b0ef0e869fed7"
+    },
+    {
+      "path": "assets/audio/sinkhole_quake.mp3",
+      "sha256": "d3a6eb6c03a367d3c84b932d75cd1fdc1e586238a2d2bbab0f6802ae30e32f1d"
+    },
+    {
+      "path": "assets/audio/blast_fire.mp3",
+      "sha256": "00b0e149e43e3bf2e5fe7560efbe18e0d69951fe55252764fa5394a270654d08"
+    },
+    {
+      "path": "assets/audio/rotor_spin.wav",
+      "sha256": "27386dcd9781f73e268cc5d8ac8439e90c55e791c2302d2bf6e1c64d290825a3"
+    },
+    {
+      "path": "src/stalheart/sinkhole-shape.js",
+      "sha256": "cfa62095777bf55d467b2146dcf1eef026f2861e4c580f938004d8db29f8553e"
+    },
+    {
+      "path": "src/stalheart/looks.js",
+      "sha256": "963bc18da4c9ded14d7a29caa1f02582bc23f58129de43f5d0a74ced9d577d1d"
+    }
+  ],
+  "sinkholeAdapterSource": {
+    "path": "../stalheart/src/sinkhole-terrain.js",
+    "sha256": "88afef9bd72bc61ec47fb4a78f18d21a46162642483efb530954bc547d79a631"
+  }
+}

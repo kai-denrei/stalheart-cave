@@ -1,0 +1,15 @@
+{
+  "name": "stalheart-below",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/serve.mjs",
+    "start": "node scripts/serve.mjs",
+    "build": "node scripts/build.mjs",
+    "test": "node --test test/*.test.mjs",
+    "check": "node --check src/main.js && node --check src/world.js && node --check src/mission.js && node --check src/audio.js && node --check src/nursery.js && node --check src/flares.js && node --check src/sinkhole.js",
+    "test:browser": "node scripts/browser-test.mjs"
+  },
+  "engines": { "node": ">=22" }
+}
