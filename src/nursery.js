@@ -1,10 +1,14 @@
 import * as THREE from '../vendor/three.module.js';
-import {CHAMBER,QUEEN,EGG_COUNT,chamberFloor,clamp} from './mission.js';
+import {CHAMBER,QUEEN,EGG_COUNT,chamberFloor,clamp,isTunnelInterior} from './mission.js';
 
 export async function createNursery({scene,body,points,sample,stone,flesh,rand}){
   // A 152 m chamber with an open ceiling connected directly to the drop shaft.
   const shell=new THREE.SphereGeometry(1,112,72,0,Math.PI*2,CHAMBER.opening,Math.PI-CHAMBER.opening);
   shell.scale(CHAMBER.r,CHAMBER.ry,CHAMBER.r);shell.translate(CHAMBER.x,CHAMBER.y,CHAMBER.z);
+  // Cut the second route into the chamber wall, rather than leaving a solid cap.
+  const surface=shell.attributes.position,open=[];
+  for(let i=0;i<shell.index.count;i+=3){const a=shell.index.getX(i),b=shell.index.getX(i+1),c=shell.index.getX(i+2),p={x:(surface.getX(a)+surface.getX(b)+surface.getX(c))/3,y:(surface.getY(a)+surface.getY(b)+surface.getY(c))/3,z:(surface.getZ(a)+surface.getZ(b)+surface.getZ(c))/3};if(!isTunnelInterior(p,.15))open.push(a,b,c);}
+  shell.setIndex(open);
   body(shell,stone,scene,135000);
   const eggGeo=new THREE.SphereGeometry(1,12,10),ep=eggGeo.attributes.position;
   for(let i=0;i<ep.count;i++){const y=ep.getY(i);ep.setXYZ(i,ep.getX(i)*(1-.22*y),y*1.6,ep.getZ(i)*(1-.22*y));}eggGeo.computeVertexNormals();

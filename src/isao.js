@@ -7,11 +7,9 @@ export async function createIsao(scene,camera){
   const rig=new THREE.Group(),model=new THREE.Group();rig.name='ISAO flight rig';rig.add(model);scene.add(rig);
   const box=new THREE.Box3().setFromObject(gltf.scene),size=box.getSize(new THREE.Vector3()),center=box.getCenter(new THREE.Vector3());
   const scale=2.25/Math.max(size.x,size.z);gltf.scene.position.sub(center);model.scale.setScalar(scale);model.rotation.y=Math.PI;model.add(gltf.scene);
-  gltf.scene.traverse(node=>{if(!node.isMesh)return;node.material=node.material.clone();if(node.material.emissive&&node.material.emissive.getHex()===0)node.material.emissive.setHex(0x0d222b);});
   const mixer=new THREE.AnimationMixer(gltf.scene);const actions=new Map();
   for(const clip of gltf.animations)actions.set(clip.name,mixer.clipAction(clip));
   actions.get('Rotor_Cycle')?.play();let face=null;
-  const fill=new THREE.PointLight(0xd7e7d1,1.7,3,1.2);rig.add(fill);fill.position.set(0,.4,0);
   const payload=new THREE.Mesh(new THREE.CylinderGeometry(.15,.15,.65,12),new THREE.MeshStandardMaterial({color:0x96916c,roughness:.55,metalness:.35}));payload.rotation.z=Math.PI/2;payload.position.set(0,-.58,0);rig.add(payload);
   const back=new THREE.Vector3(),desired=new THREE.Vector3(),target=new THREE.Vector3(),test=new THREE.Vector3(),last=new THREE.Vector3(),candidate=new THREE.Vector3(),best=new THREE.Vector3();
   function clipBoom(position,goal){
@@ -22,7 +20,7 @@ export async function createIsao(scene,camera){
   let initialized=false;
   function update(time,dt,position,yaw,orbitPitch,flight,mission){
     rig.position.copy(position);rig.rotation.set(flight.pitch,yaw,flight.roll,'YXZ');payload.visible=mission.payload;
-    const emotion=mission.integrity<35?'Emotion_Alarm':mission.lightFailed?'Emotion_Worried':!mission.payload?'Emotion_Determined':'Emotion_Neutral';
+    const emotion=mission.integrity<35?'Emotion_Alarm':mission.cameraHits>0?'Emotion_Worried':!mission.payload?'Emotion_Determined':'Emotion_Neutral';
     if(emotion!==face){if(face)actions.get(face)?.stop();actions.get(emotion)?.play();face=emotion;}
     actions.get('Rotor_Cycle')?.setEffectiveTimeScale(1+Math.hypot(flight.velocity.x,flight.velocity.y,flight.velocity.z)*.055);mixer.update(Math.max(0,dt));
     back.set(Math.sin(yaw)*Math.cos(orbitPitch),-Math.sin(orbitPitch),Math.cos(yaw)*Math.cos(orbitPitch));

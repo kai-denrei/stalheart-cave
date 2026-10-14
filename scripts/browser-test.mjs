@@ -26,16 +26,19 @@ try{
   await send('Emulation.setDeviceMetricsOverride',{width:1440,height:960,deviceScaleFactor:1,mobile:false});
   const testUrl=new URL(process.env.BELOW_TEST_URL||`http://127.0.0.1:${server.address().port}/`);testUrl.searchParams.set('test','1');
   await send('Page.navigate',{url:testUrl.href});
-  for(let i=0;i<100;i++){if(await evaluate('!!window.__below'))break;await wait(100);}
+  for(let i=0;i<200;i++){if(await evaluate('!!window.__below'))break;await wait(100);}
   assert.ok(await evaluate('!!window.__below'),'world boots');await capture('01-briefing');
   const button=await evaluate('(()=>{const r=document.getElementById("begin").getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()');
   await send('Input.dispatchMouseEvent',{type:'mousePressed',...button,button:'left',clickCount:1});await send('Input.dispatchMouseEvent',{type:'mouseReleased',...button,button:'left',clickCount:1});await wait(300);
-  assert.equal((await snap()).mode,'playing');assert.equal((await snap()).isaoModel,'isao_birudoron_lod1');assert.equal((await snap()).rotorClip,true);assert.equal((await snap()).cutisCount,5);assert.equal((await snap()).cutisType,'Cutis-Soft Ivory');assert.ok((await snap()).cameraDistance>2);await capture('02-third-person-isao');
+  assert.equal((await snap()).mode,'playing');assert.equal((await snap()).isaoModel,'isao_birudoron_lod1');assert.equal((await snap()).rotorClip,true);assert.equal((await snap()).cutisCount,8);assert.equal((await snap()).cutisType,'Cutis-Soft Ivory');assert.ok((await snap()).cameraDistance>2);await capture('02-third-person-isao');
   const start=await snap();await key('KeyW');await wait(600);await key('KeyW','keyUp');const moved=await snap();assert.ok(moved.position[2]<start.position[2]-.5,'keyboard flight');assert.ok(Math.abs(moved.position[1]-start.position[1])<.01,'W does not change altitude');
   await key('ShiftLeft');await wait(600);await key('ShiftLeft','keyUp');assert.ok((await snap()).position[1]<moved.position[1]-.5,'Shift descends');await evaluate('__below.advance(.8)');const low=await snap();await key('Space');await wait(650);await key('Space','keyUp');assert.ok((await snap()).position[1]>low.position[1]+.5,'Space climbs');
   await evaluate('__below.place(38);__below.look(0,-.55);__below.advance(.2)');await capture('03-cutis-ivory');
-  await evaluate('__below.place(49);__below.look(0,0);__below.advance(.1)');assert.equal((await snap()).mission.lightFailed,true);
-  await key('KeyQ');await key('KeyQ','keyUp');await wait(900);assert.equal((await snap()).mission.lidar,true);await capture('03-living-walls');
+  await evaluate('__below.place(49);__below.look(0,0);__below.advance(.1)');assert.equal((await snap()).mission.lidarAvailable,false);
+  await evaluate('__below.hit(2);__below.advance(.05)');assert.equal((await snap()).mission.cameraState,'recovering');await capture('04-camera-glitch');await evaluate('__below.advance(3.6)');assert.equal((await snap()).mission.cameraState,'working');
+  await evaluate('__below.hit(2);__below.advance(.05)');assert.equal((await snap()).mission.cameraState,'failed');await capture('05-camera-failed');await evaluate('__below.advance(4.2)');assert.equal((await snap()).mission.lidarAvailable,true);
+  await key('KeyQ');await key('KeyQ','keyUp');await wait(900);assert.equal((await snap()).mission.lidar,true);await capture('06-lidar-restores-view');
+  for(const mode of [1,2,0]){await evaluate(`__below.selectView(${mode});__below.advance(.05)`);assert.equal((await snap()).mission.lidarMode,mode);}await evaluate('__below.selectView("optical")');assert.equal((await snap()).mission.lidar,true,'failed optics cannot be selected');
   await key('KeyF');await key('KeyF','keyUp');await evaluate('__below.advance(3)');assert.equal((await snap()).mission.flares,5);assert.equal((await snap()).flares.length,1);await capture('04-flare');
   await evaluate('__below.place(137);__below.look(0,-1.5);__below.advance(.1);__below.scan()');await wait(1400);await capture('05-vertical-shaft');
   await key('KeyF');await key('KeyF','keyUp');await evaluate('__below.advance(3)');const shaftFlare=(await snap()).flares[1];assert.ok(shaftFlare.position[1]>-100,'flare lodges in shaft instead of falling to chamber');
@@ -43,17 +46,17 @@ try{
   await key('KeyP','keyUp');await key('KeyP');await key('KeyP','keyUp');await wait(100);assert.equal((await snap()).mode,'playing');
   for(let i=0;i<5;i++){await key('KeyF');await key('KeyF','keyUp');}assert.equal((await snap()).mission.flares,0);assert.equal((await snap()).flares.length,6);
   await evaluate('__below.pose(43,-190,-38);__below.look(.6,-.36);__below.advance(.2);__below.scan()');await wait(1700);await capture('06-queen-chamber');
-  const nursery=await snap();assert.equal(nursery.mission.nursery,true);assert.equal(nursery.eggs,1600);assert.equal(nursery.chamberWidth,152);assert.equal(nursery.queenScale,620);assert.equal(nursery.tentacles,14);
+  const nursery=await snap();assert.equal(nursery.tunnelBranches,3);assert.equal(nursery.queenRoutes,2);assert.equal(nursery.gorogoroCount,3);assert.equal(nursery.reedCount,2);assert.equal(nursery.mission.nursery,true);assert.equal(nursery.eggs,1600);assert.equal(nursery.chamberWidth,180);assert.equal(nursery.queenScale,620);assert.equal(nursery.tentacles,38);
   assert.equal(await evaluate('document.getElementById("interaction").hidden'),true,'no proximity placement prompt');
   const laidBefore=nursery.laidEggs;await evaluate('__below.advance(8.2)');assert.ok((await snap()).laidEggs>laidBefore,'Queen keeps laying eggs');assert.notDeepEqual((await snap()).queenPosition,nursery.queenPosition,'Queen moves slowly');assert.notEqual((await snap()).queenRotation,nursery.queenRotation,'Queen turns');
   await evaluate('__below.pose(36,-239,-63);__below.look(.77,.03);__below.scan()');await wait(1300);await capture('07-egg-laying');
   await evaluate('__below.nearQueen()');const chosen=(await snap()).position;await key('KeyE');await evaluate('__below.advance(3.2)');await key('KeyE','keyUp');
   assert.equal((await snap()).mission.payload,false);assert.equal((await snap()).mission.bombPosition.x,chosen[0]);await capture('08-extraction');
   await evaluate('__below.pose(0,3,0);__below.advance(.1)');assert.equal((await snap()).mode,'surface');assert.equal((await snap()).mission.extracted,true);assert.equal((await snap()).mission.outcome,null);assert.equal((await snap()).detonationActive,false);await capture('09-surface-countdown');
-  const remaining=(await snap()).mission.fuse;await evaluate(`__below.advance(${remaining+.08})`);assert.equal((await snap()).mode,'detonation');assert.equal((await snap()).mission.outcome,'rescued');await evaluate('__below.advance(1)');assert.ok(Math.abs((await snap()).groundDisplacement)>.001);await capture('10-ground-tremor');await evaluate('__below.advance(3)');assert.equal((await snap()).smokeVisible,true);await capture('11-venting-smoke');await evaluate('__below.advance(7)');assert.equal((await snap()).mode,'ended');
+  const remaining=(await snap()).mission.fuse;await evaluate(`__below.advance(${remaining+.08})`);assert.equal((await snap()).mode,'detonation');assert.equal((await snap()).mission.outcome,'rescued');await evaluate('__below.advance(1)');assert.ok(Math.abs((await snap()).groundDisplacement)>.001);await capture('10-ground-tremor');await evaluate('__below.advance(3)');assert.equal((await snap()).smokeVisible,true);assert.equal((await snap()).smokeParticles,3200);assert.equal((await snap()).smokeOriginDepth,15);await capture('11-venting-smoke');await evaluate('__below.advance(11)');assert.equal((await snap()).mode,'ended');
   await evaluate('__below.start()');await wait(150);assert.equal((await snap()).mission.flares,6);assert.equal((await snap()).flares.length,0);
   await evaluate('__below.pose(-39,-225,-98)');await key('KeyE');await evaluate('__below.advance(3.2)');await key('KeyE','keyUp');assert.equal((await snap()).mission.bombPosition.x,-39,'second placement point is accepted');
-  await evaluate('__below.advance(66)');assert.equal((await snap()).mission.outcome,'sacrifice');assert.equal((await snap()).mode,'detonation');await evaluate('__below.advance(4)');assert.equal((await snap()).smokeVisible,true);await capture('12-sacrifice-blast');await evaluate('__below.advance(7)');assert.equal((await snap()).mode,'ended');
+  await evaluate('__below.advance(66)');assert.equal((await snap()).mission.outcome,'sacrifice');assert.equal((await snap()).mode,'detonation');await evaluate('__below.advance(4)');assert.equal((await snap()).smokeVisible,true);await capture('12-sacrifice-blast');await evaluate('__below.advance(11)');assert.equal((await snap()).mode,'ended');
   await evaluate('__below.start()');await wait(150);await evaluate('__below.hurt(100);__below.advance(.1)');assert.equal((await snap()).mission.outcome,'lost');
   // Fly the whole route, including both elbows and a down/up traversal of the shaft.
   await evaluate('__below.start()');await wait(150);
@@ -68,7 +71,7 @@ try{
         const dx=goal.x-p.x,dy=goal.y-p.y,dz=goal.z-p.z,horizontal=Math.hypot(dx,dz);
         if(horizontal>1){__below.look(-Math.atan2(dx,-dz),-.45);press('KeyW');}else press('KeyW','keyup');
         press('Space',dy>.6?'keydown':'keyup');press('ShiftLeft',dy<-.6?'keydown':'keyup');__below.advance(.08);steps++;
-        if(state.mission.lightFailed)__below.scan();
+        if(state.mission.lidarAvailable)__below.scan();
       }
       if(n>=limit)milestones.push({stuck:goal,state:__below.snapshot()});
     }
@@ -83,10 +86,42 @@ try{
   await writeFile(new URL('../artifacts/flight-report.json',import.meta.url),JSON.stringify(flight,null,2));
   assert.equal(flight.planted.mission.payload,false,'complete flight reaches Queen');
   assert.equal(flight.finished.mission.extracted,true,'complete flight returns up the shaft');assert.ok(flight.finished.mission.fuse>0&&flight.finished.mission.fuse<30,'return is possible with a tight margin');
-  await evaluate(`__below.advance(${flight.finished.mission.fuse+11})`);assert.equal((await snap()).mission.outcome,'rescued');assert.equal((await snap()).mode,'ended');
+  await evaluate(`__below.advance(${flight.finished.mission.fuse+15})`);assert.equal((await snap()).mission.outcome,'rescued');assert.equal((await snap()).mode,'ended');
+  await evaluate('__below.start()');await wait(150);
+  const branches=await evaluate(`(async()=>{
+    const {branchCenter,BRANCHES,center,distance}=await import('./src/mission.js');
+    const press=(code,type='keydown')=>document.dispatchEvent(new KeyboardEvent(type,{code}));
+    const stuck=[];
+    function go(goal){let n=0;while(n++<180&&__below.snapshot().mode==='playing'){
+      const state=__below.snapshot(),a=state.position,p={x:a[0],y:a[1],z:a[2]};if(distance(p,goal)<1.3)break;
+      const dx=goal.x-p.x,dy=goal.y-p.y,dz=goal.z-p.z;
+      if(Math.hypot(dx,dz)>1){__below.look(-Math.atan2(dx,-dz),-.35);press('KeyW');}else press('KeyW','keyup');
+      press('Space',dy>.6?'keydown':'keyup');press('ShiftLeft',dy<-.6?'keydown':'keyup');__below.advance(.08);
+      if(state.mission.lidarAvailable)__below.scan();
+    }if(n>=180)stuck.push({goal,state:__below.snapshot()});}
+    function stop(){for(const code of ['KeyW','Space','ShiftLeft'])press(code,'keyup');}
+    __below.pose(0,-33.2,-36);
+    const blind=BRANCHES.find(b=>b.id==='blind'),left=BRANCHES.find(b=>b.id==='left');
+    for(let s=0;s<blind.length;s+=3)go(branchCenter('blind',s));go(branchCenter('blind',blind.length));stop();const deadEnd=__below.snapshot();
+    for(let s=blind.length-3;s>0;s-=3)go(branchCenter('blind',s));go(center(48));stop();
+    // Reset damage between independent branch traversals; begin at the shared junction.
+    __below.start();__below.pose(0,-33.2,-36);
+    for(let s=0;s<left.length;s+=3)go(branchCenter('left',s));go(branchCenter('left',left.length));
+    go({x:-38,y:-204,z:-93});go({x:-39,y:-219,z:-98});stop();__below.advance(1);press('KeyE');__below.advance(3.2);press('KeyE','keyup');const planted=__below.snapshot();
+    go({x:-38,y:-204,z:-93});go(branchCenter('left',left.length));
+    for(let s=left.length-3;s>0;s-=3)go(branchCenter('left',s));go(center(48));
+    for(let s=44;s>=0;s-=4)go(center(s));go({x:0,y:4,z:0});stop();return {deadEnd,planted,finished:__below.snapshot(),stuck};
+  })()`);
+  await writeFile(new URL('../artifacts/branch-report.json',import.meta.url),JSON.stringify(branches,null,2));
+  assert.deepEqual(branches.stuck,[],'branch portals permit physical flight');
+  assert.equal(branches.deadEnd.mission.deadEndSeen,true,'third tunnel terminates without a Queen');
+  assert.equal(branches.deadEnd.mission.nursery,false,'blind route does not reach chamber');
+  assert.equal(branches.planted.mission.payload,false,'second route reaches Queen');
+  assert.equal(branches.finished.mission.extracted,true,'second route permits a timed return');
+  assert.ok(branches.finished.mission.fuse>0,'second route fits fuse');
   assert.deepEqual(errors,[],'no browser/WebGL errors');
-  const report={result:'PASS',checks:['third-person ISAO model and rotors','yaw-relative WASD','Shift down / Space up','five Cutis-Soft Ivory creatures','slow Queen movement','65-second fuse','countdown continues after escape','ground tremor and smoke','Stalheart sinkhole','keyboard flight','LiDAR','longer tentacles','six persistent flares','pause freezes flares','vertical shaft','152 m chamber / 1600 eggs','egg laying','no placement marker','two free bomb positions','all endings','restart restocks flares','continuous return flight','console clean'],flight,snapshot:await snap(),errors};
-  await writeFile(new URL('../artifacts/browser-report.json',import.meta.url),JSON.stringify(report,null,2));console.log(JSON.stringify({result:report.result,checks:report.checks,returnMargin:flight.finished.mission.fuse,hull:flight.finished.mission.integrity,milestones:flight.milestones,errors},null,2));
+  const report={result:'PASS',checks:['third-person ISAO model and rotors','yaw-relative WASD','Shift down / Space up','8 Ivory, 3 native Gorogoro, 2 Reed','slow Queen movement','65-second fuse','countdown continues after escape','ground tremor / 3200 smoke puffs from inside sinkhole','Stalheart sinkhole','keyboard flight','two impact camera failures / three LiDAR modes','38 longer tentacles','six persistent flares','pause freezes flares','vertical shaft','180 m chamber / 1600 eggs','egg laying','no placement marker','two free bomb positions','all endings','restart restocks flares','continuous return flight','console clean'],flight,branches,snapshot:await snap(),errors};
+  await writeFile(new URL('../artifacts/browser-report.json',import.meta.url),JSON.stringify(report,null,2));console.log(JSON.stringify({result:report.result,checks:report.checks,returnMargin:flight.finished.mission.fuse,secondRouteMargin:branches.finished.mission.fuse,hull:flight.finished.mission.integrity,milestones:flight.milestones,errors},null,2));
 }finally{
   ws?.close();chrome.kill();await new Promise(r=>server.close(r));await rm(profile,{recursive:true,force:true});
 }

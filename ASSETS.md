@@ -8,6 +8,8 @@ All assets are frozen local copies. No runtime hotlinks or source repositories a
 | `assets/fonts/ShareTechMono.woff2` | Stalheart's font bundle; Share Tech Mono, SIL Open Font License |
 | `assets/fonts/VT323.woff2` | Stalheart's font bundle; VT323, SIL Open Font License |
 | `assets/models/ovum.bin`, `ovum.json` | `../Jelly-Baby/src/assets/model/ovum.*`, manifest source `ovum-spider-v3`; used as the nursery mother |
+| `assets/models/reed.bin`, `reed.json` | `../Jelly-Baby/src/assets/model/reed.*`; original Reed mesh with prototype appendage motion and patrol |
+| `src/fx/gorogoro/` | Jelly-Baby’s native Cutis-Gorogoro kit from `../Jelly-Baby/src/cutis/swarm/` and `src/cutis/creature/`: TypeScript transpiled to standalone JavaScript, imports adapted to vendored Three.js; original shaders retained, GPL-3.0 license included |
 | `assets/audio/sinkhole_quake.mp3` | Stalheart's existing sinkhole sound |
 | `assets/audio/blast_fire.mp3` | Stalheart's existing explosion sound |
 | `assets/audio/rotor_spin.wav` | Stalheart's rotor sound, retained for comparison; current flight loop is synthesized |

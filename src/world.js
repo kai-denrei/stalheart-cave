@@ -2,6 +2,7 @@ import * as THREE from '../vendor/three.module.js';
 import { center, radius, frameAt, ringPoint, ROUTE_END, SHAFT_TOP, CHAMBER_LIP, chamberFloor, smooth, pointSegmentDistance } from './mission.js';
 import {createSinkholeEntrance} from './sinkhole.js';
 import {createNursery} from './nursery.js';
+import {createCaveNetwork} from './cave.js';
 import {createIsao} from './isao.js';
 import {createTunnelCreatures} from './creatures.js';
 import {createDetonation} from './detonation.js';
@@ -23,7 +24,7 @@ export async function createWorld(canvas){
   scene.fog=new THREE.FogExp2(0x020504,.035);
   const camera=new THREE.PerspectiveCamera(72,innerWidth/innerHeight,.08,340);
   camera.rotation.order='YXZ';scene.add(camera);const player=new THREE.Vector3();
-  const uniforms={uTime:{value:0},uLidar:{value:0},uScanTime:{value:-100},uScanOrigin:{value:new THREE.Vector3()},uPreview:{value:0},uFlarePositions:{value:Array.from({length:6},()=>new THREE.Vector3())},uFlareStrengths:{value:Array(6).fill(0)}};
+  const uniforms={uTime:{value:0},uLidar:{value:0},uScanTime:{value:-100},uScanOrigin:{value:new THREE.Vector3()},uScanMode:{value:0},uPreview:{value:0},uFlarePositions:{value:Array.from({length:6},()=>new THREE.Vector3())},uFlareStrengths:{value:Array(6).fill(0)}};
   const surfaces=[];
   function material(color,roughness=.93,rock=false){
     const mat=new THREE.MeshStandardMaterial({color,roughness,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1});
@@ -49,8 +50,8 @@ export async function createWorld(canvas){
   const pointMaterial=new THREE.ShaderMaterial({
     uniforms,transparent:true,depthWrite:false,depthTest:true,blending:THREE.AdditiveBlending,
     vertexShader:`
-      uniform float uTime; uniform float uLidar; uniform float uScanTime; uniform vec3 uScanOrigin; uniform float uPreview;
-      attribute float aSeed; varying float vAlpha; varying float vDistance; varying float vSeed;
+      uniform float uScanMode; uniform float uTime; uniform float uLidar; uniform float uScanTime; uniform vec3 uScanOrigin; uniform float uPreview;
+      attribute float aMotion; attribute float aSeed; varying float vMotion; varying float vAlpha; varying float vDistance; varying float vSeed;
       void main(){
         vec4 world=modelMatrix*vec4(position,1.);vec4 view=viewMatrix*world;
         float d=length(view.xyz);float scanD=distance(world.xyz,uScanOrigin);float age=uTime-uScanTime-scanD/72.;
@@ -60,23 +61,25 @@ export async function createWorld(canvas){
         vAlpha=max(proximity,echo*.9)+pulse*.35;
         vAlpha=max(vAlpha,uPreview*(.52+.18*sin(aSeed*70.)));
         vAlpha*=uLidar*(.6+.4*aSeed)*(1.-smoothstep(125.,180.,d));
-        vDistance=d;vSeed=aSeed;
+        vDistance=d;vSeed=aSeed;vMotion=aMotion;
         gl_Position=projectionMatrix*view;
         gl_PointSize=clamp((34.+aSeed*17.)/max(1.,-view.z),1.05,3.3);
       }`,
     fragmentShader:`
-      varying float vAlpha;varying float vDistance;varying float vSeed;
+      uniform float uScanMode;varying float vMotion;varying float vAlpha;varying float vDistance;varying float vSeed;
       void main(){
         if(vAlpha<.02) discard;
         vec2 c=gl_PointCoord-.5;if(dot(c,c)>.25)discard;
         float d=vDistance;
         vec3 near=vec3(.94,.43,.23),mid=vec3(.79,.77,.38),green=vec3(.36,.7,.48),far=vec3(.19,.47,.62),deep=vec3(.27,.3,.57);
         vec3 col=mix(near,mid,smoothstep(2.,12.,d));col=mix(col,green,smoothstep(12.,26.,d));col=mix(col,far,smoothstep(26.,47.,d));col=mix(col,deep,smoothstep(47.,85.,d));
+        if(uScanMode>.5&&uScanMode<1.5)col=vec3(.36,.88,.5)*(.4+vSeed*.6);if(uScanMode>1.5)col=mix(vec3(.12,.23,.31),vec3(1.,.42,.24),vMotion);
         gl_FragColor=vec4(col*(1.05+vSeed*.3),min(1.,vAlpha*1.15));
       }`
   });
-  function points(geometry,parent=scene){
+  function points(geometry,parent=scene,moving=false){
     if(!geometry.getAttribute('aSeed')){const a=new Float32Array(geometry.getAttribute('position').count);for(let i=0;i<a.length;i++)a[i]=rand();geometry.setAttribute('aSeed',new THREE.BufferAttribute(a,1));}
+    if(!geometry.getAttribute('aMotion'))geometry.setAttribute('aMotion',new THREE.BufferAttribute(new Float32Array(geometry.attributes.position.count).fill(moving?1:0),1));
     const p=new THREE.Points(geometry,pointMaterial);p.frustumCulled=false;parent.add(p);return p;
   }
   function sample(geometry,count){
@@ -93,47 +96,35 @@ export async function createWorld(canvas){
     }
     return new THREE.BufferGeometry().setAttribute('position',new THREE.BufferAttribute(out,3));
   }
-  function body(geometry,mat,parent=scene,samples=1500){const mesh=new THREE.Mesh(geometry,mat);parent.add(mesh);surfaces.push(mesh);if(samples)points(sample(geometry,samples),mesh);return mesh;}
+  function body(geometry,mat,parent=scene,samples=1500){const mesh=new THREE.Mesh(geometry,mat);parent.add(mesh);surfaces.push(mesh);if(samples)points(sample(geometry,samples),mesh,parent.name.includes('Queen')||parent.name.includes('Cutis'));return mesh;}
 
   const entrance=createSinkholeEntrance(scene);
-  const ringCount=340,sides=72,pos=[],indices=[];
-  for(let i=0;i<=ringCount;i++){
-    const s=i/ringCount*ROUTE_END;
-    for(let j=0;j<=sides;j++){
-      const p=ringPoint(s,j/sides*TAU);pos.push(p.x,p.y,p.z);
-      if(i<ringCount&&j<sides){const v=i*(sides+1)+j;indices.push(v,v+sides+1,v+1,v+1,v+sides+1,v+sides+2);}
-    }
-  }
-  const cave=new THREE.BufferGeometry();cave.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));cave.setIndex(indices);cave.computeVertexNormals();body(cave,stone,scene,200000);
+  const network=createCaveNetwork({body,stone,scene});
   const nursery=await createNursery({scene,body,points,sample,stone,flesh,rand});
   const flares=createFlares(scene,uniforms);
   const isao=await createIsao(scene,camera);
-  const creatures=createTunnelCreatures({scene,body,points,material});
+  const creatures=await createTunnelCreatures({scene,body,points,material,uniforms,camera});
 
   // Only surface light fades in the throat; darkness below still requires the lamp.
   const surfaceHemi=new THREE.HemisphereLight(0x7097bb,0x0a1018,.9);scene.add(surfaceHemi);
   const surfaceSun=new THREE.DirectionalLight(0xb8d4e1,1.3);surfaceSun.position.set(20,50,10);scene.add(surfaceSun);
-  const rimLight=new THREE.PointLight(0x6ce8ed,50,60,1.5);rimLight.position.set(0,7,0);scene.add(rimLight);
-  const tank=new THREE.Group();tank.position.set(-22,2,20);tank.rotation.y=-.5;scene.add(tank);
-  const hull=new THREE.Mesh(new THREE.BoxGeometry(11,2.3,6),metal);tank.add(hull);
-  const turret=new THREE.Mesh(new THREE.BoxGeometry(3.6,1.2,3),metal);turret.position.y=1.7;tank.add(turret);
-  for(const x of [-5.7,5.7]){const skirt=new THREE.Mesh(new THREE.BoxGeometry(1.8,1.4,7),metal);skirt.position.set(x,-.5,0);tank.add(skirt);}
-  const barrel=new THREE.Mesh(new THREE.CylinderGeometry(.18,.28,5,8),metal);barrel.rotation.x=Math.PI/2;barrel.position.set(0,1.8,-3);tank.add(barrel);
-  const lamp=new THREE.SpotLight(0xd3dec0,110,42,Math.PI*.24,.7,1.35);scene.add(lamp, lamp.target);
-  const blast=createDetonation(scene,entrance,tank);
+
+  const blast=createDetonation(scene,entrance);
 
   const limbs=[];
-  function addLimb(s,angle,phase){
-    const f=frameAt(s),root=vec(ringPoint(s,angle,.3)),length=radius(s)*1.95;
+  function addLimb(s,angle,phase,branch='main'){
+    const f=frameAt(s,branch),root=vec(ringPoint(s,angle,.3,branch)),length=radius(s,branch)*1.7;
     const inward=vec(f.u).multiplyScalar(-Math.cos(angle)).addScaledVector(vec(f.v),-Math.sin(angle));
     const side=vec(f.u).multiplyScalar(-Math.sin(angle)).addScaledVector(vec(f.v),Math.cos(angle));
     const segments=32,radial=9,arr=new Float32Array((segments+1)*(radial+1)*3),idx=[];
     for(let i=0;i<segments;i++)for(let j=0;j<radial;j++){const k=i*(radial+1)+j;idx.push(k,k+radial+1,k+1,k+1,k+radial+1,k+radial+2);}
     const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(arr,3));geo.setIndex(idx);
-    const mesh=new THREE.Mesh(geo,flesh);scene.add(mesh);mesh.frustumCulled=false;points(geo);
+    const mesh=new THREE.Mesh(geo,flesh);scene.add(mesh);mesh.frustumCulled=false;points(geo,scene,true);
     limbs.push({s,angle,length,phase,root,inward,side,along:vec(f.t),geo,arr,segments,radial,path:[]});
   }
-  for(const [i,s] of [48,65,80,108,137,165,191].entries()){addLimb(s,i%2?2.7:.35,i*1.7);addLimb(s+4,i%2?-.7:3.8,i*1.7+2.9);}
+  for(const [i,s] of [27,35,43,52,62,74,85,103,119,137,155,173,191].entries()){addLimb(s,i%2?2.7:.35,i*1.7);addLimb(s+4,i%2?-.7:3.8,i*1.7+2.9);}
+  for(const [i,s] of [25,52,82,117,145].entries()){addLimb(s,.3,i*1.4,'left');addLimb(s+5,3.6,i*1.4+2.2,'left');}
+  addLimb(32,1,3.4,'blind');addLimb(56,4.2,6,'blind');
   const tangent=new THREE.Vector3(),axis=new THREE.Vector3(),normal=new THREE.Vector3(),up=new THREE.Vector3(0,1,0),alternative=new THREE.Vector3(0,0,1);
   function animateLimbs(time){
     for(const l of limbs){
@@ -162,14 +153,12 @@ export async function createWorld(canvas){
     const cinematic=!!flightData?.cinematic;
     if(flightData)isao.update(time,flightData.dt,player,flightData.yaw,flightData.pitch,flightData.flight,mission);
     isao.rig.visible=!preview&&(!cinematic||mission.extracted);
-    if(cinematic){const state=blast.stats(),age=state.detonationAge,q=flightData.reducedMotion||!state.detonationActive?0:Math.max(0,1-age/4)*.13;camera.position.set(31+Math.sin(time*31)*q,29+Math.cos(time*29)*q,39);camera.lookAt(0,-3,0);}
+    if(cinematic){const state=blast.stats(),age=state.detonationAge,q=flightData.reducedMotion||!state.detonationActive?0:Math.max(0,1-age/4)*.13;const pull=smooth(0,5,age);camera.position.set(31+pull*45+Math.sin(time*31)*q,29+pull*28+Math.cos(time*29)*q,39+pull*62);camera.lookAt(0,-3+pull*30,0);}
     uniforms.uTime.value=time;uniforms.uLidar.value=mission.lidar&&!preview&&!cinematic?1:0;uniforms.uPreview.value=0;
-    const surface=smooth(-22,-2,camera.position.y);surfaceHemi.intensity=surface*.9;surfaceSun.intensity=surface*1.3;
+    const surface=cinematic||preview?1:smooth(-2,3,player.y);surfaceHemi.intensity=surface*.9;surfaceSun.intensity=surface*1.3;
     scene.background.setRGB(.002+surface*.003,.005+surface*.004,.004+surface*.012);
     scene.fog.density=(mission.lidar||preview)? .002 : .035*(1-surface)+.005;
-    lamp.position.copy(player);lamp.position.y+=.25;lamp.target.position.copy(player).add(new THREE.Vector3(-Math.sin(flightData?.yaw||0)*10,Math.sin(flightData?.pitch||0)*10,-Math.cos(flightData?.yaw||0)*10));
-    lamp.intensity=mission.lightFailed||preview||cinematic?0:110*((player.z<-25&&Math.sin(time*30)>.35)?.1:1);
-    dust.visible=!mission.lidar&&!preview&&!cinematic;
+    dust.visible=false;
     animateLimbs(time);nursery.update(time);creatures.update(time);flares.update(time,camera);blast.update(time,flightData?.reducedMotion);
     drop.visible=!mission.payload;
     if(mission.bombPosition){
@@ -183,5 +172,5 @@ export async function createWorld(canvas){
   function reset(){flares.reset();isao.reset();creatures.reset();blast.reset();dropTime=null;drop.visible=false;uniforms.uScanTime.value=-100;}
   function render(){renderer.render(scene,camera);}
   function resize(){camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);}
-  return {camera,player,renderer,scene,update,render,resize,scan,contacts,constrainBodies:nursery.constrain,reset,uniforms,dropFlare:flares.drop,startDetonation:blast.start,stats:()=>({...nursery.stats(),...isao.stats(),...creatures.stats(),...blast.stats(),flares:flares.stats(),sinkhole:entrance.source,shaftDepth:SHAFT_TOP-CHAMBER_LIP,tentacles:limbs.length})};
+  return {camera,player,renderer,scene,update,render,resize,scan,contacts,constrainBodies:nursery.constrain,reset,uniforms,dropFlare:flares.drop,startDetonation:blast.start,setLidarMode:(mode)=>{uniforms.uScanMode.value=mode;},stats:()=>({...network.stats(),...nursery.stats(),...isao.stats(),...creatures.stats(),...blast.stats(),flares:flares.stats(),sinkhole:entrance.source,shaftDepth:SHAFT_TOP-CHAMBER_LIP,tentacles:limbs.length})};
 }

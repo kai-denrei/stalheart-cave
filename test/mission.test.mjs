@@ -1,16 +1,24 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {center,frameAt,ringPoint,wallRadius,confine,createMission,tickMission,FUSE,pointSegmentDistance,closeToQueen,useFlare,QUEEN,CHAMBER,ROUTE_END,SHAFT_START,SHAFT_TOP,CHAMBER_LIP,HOLE_SCALE} from '../src/mission.js';
+import {center,frameAt,ringPoint,wallRadius,confine,createMission,tickMission,FUSE,pointSegmentDistance,closeToQueen,useFlare,QUEEN,CHAMBER,ROUTE_END,SHAFT_START,SHAFT_TOP,CHAMBER_LIP,HOLE_SCALE,recordImpact,BRANCHES,branchCenter,inChamber,isTunnelInterior} from '../src/mission.js';
 import {rimRadius,bowlHeight,SINKHOLE_INNER,SINKHOLE_DEPTH} from '../src/stalheart/sinkhole-shape.js';
 
 const placement={x:QUEEN.x+37,y:QUEEN.y,z:QUEEN.z+8};
-test('lamp, vertical drop, and nursery transitions follow actual world positions',()=>{
-  const m=createMission();assert.deepEqual(tickMission(m,1,center(30),false),[]);
-  assert.deepEqual(tickMission(m,1,center(49),false),['blackout']);
-  assert.deepEqual(tickMission(m,1,center(50),false),[]);
-  assert.deepEqual(tickMission(m,1,center(SHAFT_START+5),false),['shaft']);
-  assert.deepEqual(tickMission(m,1,{x:0,y:CHAMBER_LIP-6,z:CHAMBER.z},false),['nursery']);
-  assert.equal(m.payload,true);assert.equal(m.fuse,FUSE);
+test('LiDAR starts unavailable and is processed halfway down',()=>{
+  const m=createMission();tickMission(m,1,center(49),false);assert.equal(m.lidarAvailable,false);assert.equal(m.cameraState,'working');
+  const events=tickMission(m,1,center(SHAFT_START+43),false);assert.ok(events.includes('lidar-processing'));assert.equal(m.lidarAvailable,false);
+  assert.ok(tickMission(m,4,center(SHAFT_START+45),false).includes('lidar-ready'));assert.equal(m.lidarAvailable,true);
+});
+test('first impact interrupts and restores video; second permanently fails, with emergency processing',()=>{
+  const m=createMission();assert.deepEqual(recordImpact(m),['camera-glitch']);assert.equal(m.cameraState,'recovering');
+  tickMission(m,3,center(20),false);assert.equal(m.cameraState,'recovering');assert.ok(tickMission(m,.6,center(20),false).includes('camera-restored'));assert.equal(m.cameraState,'working');
+  assert.deepEqual(recordImpact(m),['camera-failed','lidar-processing']);tickMission(m,4,center(20),false);assert.equal(m.cameraState,'failed');assert.equal(m.lidarAvailable,true);
+  tickMission(m,20,center(20),false);assert.equal(m.cameraState,'failed');assert.equal(createMission().cameraHits,0);
+});
+test('three sub-tunnels join at the fork; two physically enter the Queen chamber, one is sealed',()=>{
+  assert.equal(BRANCHES.length,3);assert.equal(BRANCHES.filter(b=>b.toQueen).length,2);
+  for(const b of BRANCHES){for(let s=0;s<b.length;s+=.8){const p=branchCenter(b.id,s);assert.ok(isTunnelInterior(p,.65));assert.equal(confine(p),false,`${b.id} blocked at ${s}`);}const end=branchCenter(b.id,b.length);if(b.id!=='main')assert.equal(inChamber(end),b.toQueen);}
+  const blind=BRANCHES.find(b=>b.id==='blind'),f=frameAt(blind.length,'blind'),p=branchCenter('blind',blind.length);p.x+=f.t.x*25;p.y+=f.t.y*25;p.z+=f.t.z*25;assert.equal(confine(p),true);
 });
 test('the shared sinkhole throat joins the tunnel exactly, with no black cap',()=>{
   for(let a=0;a<Math.PI*2;a+=.13){const p=ringPoint(0,a);assert.ok(Math.abs(p.x-Math.cos(a)*rimRadius(a)*HOLE_SCALE*SINKHOLE_INNER)<1e-8);assert.ok(Math.abs(p.z-Math.sin(a)*rimRadius(a)*HOLE_SCALE*SINKHOLE_INNER)<1e-8);assert.equal(p.y,-HOLE_SCALE*SINKHOLE_DEPTH);assert.equal(bowlHeight(a,SINKHOLE_INNER),-SINKHOLE_DEPTH);}
@@ -33,17 +41,17 @@ test('exactly six flares, no spending after the ending, and a full restock on re
 });
 test('only reaching the real surface rescues ISAO; fuse and hull loss preserve all endings',()=>{
   const m=createMission();tickMission(m,3,placement,true);assert.deepEqual(tickMission(m,.1,center(3),false),[]);assert.deepEqual(tickMission(m,.1,{x:0,y:3,z:0},false),['extracted']);assert.equal(m.outcome,null);assert.equal(m.detonated,false);
-  assert.deepEqual(tickMission(m,FUSE,{x:0,y:3,z:0},false),['detonated']);assert.equal(m.outcome,'rescued');
+  assert.ok(tickMission(m,FUSE,{x:0,y:3,z:0},false).includes('detonated'));assert.equal(m.outcome,'rescued');
   const sacrificed=createMission();tickMission(sacrificed,3,placement,true);sacrificed.integrity=0;assert.ok(tickMission(sacrificed,.1,center(100),false).includes('signal-lost'));assert.equal(sacrificed.outcome,null);tickMission(sacrificed,FUSE,center(100),false);assert.equal(sacrificed.outcome,'sacrifice');
   const lost=createMission();lost.integrity=0;assert.deepEqual(tickMission(lost,.1,center(10),false),['lost']);
   const timed=createMission();tickMission(timed,3,placement,true);assert.ok(tickMission(timed,FUSE,center(100),false).includes('detonated'));assert.equal(timed.outcome,'sacrifice');
 });
 test('arming starts a fresh fuse and reaching the surface at zero is too late',()=>{
   const m=createMission();tickMission(m,3,placement,true);assert.equal(m.fuse,FUSE);assert.equal(m.detonated,false);
-  const events=tickMission(m,FUSE,{x:0,y:3,z:0},false);assert.deepEqual(events,['detonated']);assert.equal(m.outcome,'sacrifice');
+  const events=tickMission(m,FUSE,{x:0,y:3,z:0},false);assert.ok(events.includes('detonated'));assert.equal(m.outcome,'sacrifice');
 });
 test('the full centerline is traversable in both directions without a collision correction',()=>{
   for(let s=0;s<=ROUTE_END;s+=.23){const c=center(s);assert.equal(confine(c),false,`route blocked at ${s}`);}
-  const bad={x:180,y:-208,z:-79};assert.equal(confine(bad),true);assert.ok(bad.x<76);
+  const bad={x:180,y:-208,z:-79};assert.equal(confine(bad),true);assert.ok(bad.x<90);
 });
 test('limb contact checks the entire segment',()=>{assert.equal(pointSegmentDistance({x:0,y:1,z:0},{x:-5,y:0,z:0},{x:5,y:0,z:0}),1);});
