@@ -3,9 +3,11 @@ import { createWorld } from './world.js';
 import { createAudio } from './audio.js';
 import {impactCue} from './audio-cues.js';
 import {createFlight,fly} from './flight.js';
+import { parseMode, endingAction, postOutcome } from './handoff.js';
 import { center, confine, closeToQueen, createMission, tickMission, clamp, START, QUEEN, CHAMBER_LIP, nearestRoute, useFlare, recordImpact, MAX_HP, FLARE_COUNT, SINKHOLE_THROAT } from './mission.js';
 
 const $=id=>document.getElementById(id);
+const stalheart=parseMode(location.search);   // the campaign's last mission inside Stålheart's page (src/handoff.js)
 const audio=createAudio();
 const keys=new Set(),velocity=new THREE.Vector3();
 let world,mission=createMission(),flight=createFlight(START),mode='briefing',resumeMode='playing',detonationAt=0,yaw=0,pitch=-.43,dragging=false,hadLock=false;
@@ -65,6 +67,7 @@ function end(outcome){
   }[outcome];
   $('ending-kicker').textContent=content[0];$('ending-title').innerHTML=content[1];$('ending-copy').innerHTML=content[2];
   $('ending-stats').textContent=`FLIGHT ${formatTime(mission.time)} / HULL ${mission.integrity} / ${MAX_HP} HP / ${mission.payload?'PAYLOAD UNDELIVERED':'PAYLOAD ARMED'}`;
+  $('restart').innerHTML=`${endingAction(outcome,stalheart).label} <span>↗</span>`;   // in Stålheart's page the outcome goes back to it (src/handoff.js)
 }
 function event(type){
   if(type==='airframe-hit'){
@@ -169,7 +172,7 @@ function updateHUD(){
 function updateSoundLabel(){ $('sound').textContent=audio.enabled?'AUDIO ON':'AUDIO OFF';$('sound').setAttribute('aria-label',audio.enabled?'Mute audio':'Unmute audio'); }
 updateSoundLabel();
 for(const button of document.querySelectorAll('[data-view]'))button.addEventListener('click',()=>selectView(button.dataset.view));
-$('begin').addEventListener('click',start);$('resume').addEventListener('click',resume);$('restart').addEventListener('click',start);$('restart-pause').addEventListener('click',start);
+$('begin').addEventListener('click',start);$('resume').addEventListener('click',resume);$('restart').addEventListener('click',()=>{if(endingAction(mission.outcome,stalheart).action==='return')postOutcome(mission.outcome);else start();});$('restart-pause').addEventListener('click',start);
 $('sound').addEventListener('click',()=>{audio.init().catch(()=>{});audio.mute(audio.enabled);updateSoundLabel();});
 document.addEventListener('keydown',e=>{
   if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Tab'].includes(e.code)&&mode==='playing')e.preventDefault();
@@ -189,7 +192,8 @@ window.addEventListener('resize',()=>world?.resize());
 
 try{
   world=await createWorld($('view'));
-  $('begin').disabled=false;$('begin-label').textContent='TAKE CONTROL OF ISAO';
+  $('begin').disabled=false;$('begin-label').textContent=stalheart?'TAKE THE FEED':'TAKE CONTROL OF ISAO';
+  if(stalheart){const w=document.querySelector('.wordmark');if(w)w.style.visibility='hidden';const c=document.querySelector('.brief-copy');if(c)c.innerHTML='The nest is under the sinkhole.<br>MÖRK cannot fit through the breach.<br>ISAO can.';}   // Stålheart's own card: no link out, the campaign's words
   function frame(now){
     const dt=Math.min((now-lastTime)/1000,.05);lastTime=now;
     if(mode==='briefing'){
