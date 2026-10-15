@@ -8,7 +8,8 @@ import {createReedActor} from '../src/reed.js';
 
 test('the slope and throat stay exterior; darkness begins below the actual opening',()=>{
   for(const y of [4,0,-6,-12,SINKHOLE_THROAT,SINKHOLE_THROAT-1])assert.equal(exteriorExposure(y),1);
-  assert.ok(Math.abs(exteriorExposure(SINKHOLE_THROAT-4)-.5)<1e-12);assert.equal(exteriorExposure(SINKHOLE_THROAT-7),0);
+  assert.ok(exteriorExposure(SINKHOLE_THROAT-7)>.9);assert.equal(exteriorExposure(SINKHOLE_THROAT-38),0);
+  let previous=1;for(let s=0;s<=65;s++){const exposure=exteriorExposure(SINKHOLE_THROAT-1-s*.25,s);assert.ok(exposure<=previous);previous=exposure;}assert.equal(previous,0);
 });
 test('collision cues distinguish rock, tentacles, and every slime body',()=>{
   assert.equal(impactCue('wall'),'isao_hit_wall');assert.equal(impactCue('tentacle'),'isao_hit_tentacle');
@@ -40,4 +41,20 @@ test('Reed uses the native physical reach, pull and settle cycle with moving ski
   for(let i=0;i<180;i++){actor.update(1/60);phases.add(actor.motion.pursuit.phase);}
   assert.deepEqual([...phases].sort(),['pull','reach','settle']);assert.ok(actor.motion.pursuit.burst>=2);assert.ok(actor.body.isFinite());assert.ok(actor.body.center.distanceTo(start)>.001);assert.notDeepEqual(actor.body.surface.positions,rest);
   actor.reset();assert.ok(actor.body.isFinite());assert.equal(actor.motion.pursuit.burst,0);
+});
+
+import {IVORY_SPOTS,GORO_SPOTS,REED_SPOTS,MAIN_TENTACLES,LEFT_TENTACLES,BLIND_TENTACLES,colonyDistance,colonyPresence} from '../src/cave-pacing.js';
+import {createAlienSoundscape} from '../src/audio-cues.js';
+test('the approach is empty and colony life builds gradually, with sparse bioluminescence',()=>{
+  const bodies=[...IVORY_SPOTS,...GORO_SPOTS,...REED_SPOTS];
+  for(const p of bodies)assert.ok(colonyDistance(p.s,p.branch)>=58);
+  for(const [branch,positions] of [['main',MAIN_TENTACLES],['left',LEFT_TENTACLES],['blind',BLIND_TENTACLES]])for(const s of positions)assert.ok(colonyDistance(s,branch)>=68);
+  assert.equal(colonyPresence(48),0);assert.ok(colonyPresence(80)<colonyPresence(120));assert.equal(colonyPresence(155),1);
+  const glowing=bodies.filter(p=>p.bio).length;assert.ok(glowing>0&&glowing<bodies.length/2);
+});
+test('alien calls wait for the quiet approach and become more frequent deeper down',()=>{
+  const sound=createAlienSoundscape();assert.equal(sound.due(100,40),null);assert.equal(sound.due(100,120,'main',false),null);
+  const early=sound.due(100,60);assert.ok(early.volume<.04);assert.equal(sound.due(115,60),null);
+  const deep=sound.due(115,160);assert.ok(deep.volume>early.volume&&deep.volume<.07);assert.ok(deep.cutoff<1000&&deep.rate<1&&Math.abs(deep.pan)>.6);
+  sound.reset();assert.equal(sound.due(10,160),null);
 });

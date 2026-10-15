@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {center,frameAt,ringPoint,wallRadius,confine,createMission,tickMission,FUSE,pointSegmentDistance,closeToQueen,useFlare,QUEEN,CHAMBER,ROUTE_END,SHAFT_START,SHAFT_TOP,CHAMBER_LIP,HOLE_SCALE,recordImpact,BRANCHES,branchCenter,inChamber,isTunnelInterior} from '../src/mission.js';
+import {center,frameAt,ringPoint,wallRadius,confine,createMission,tickMission,FUSE,pointSegmentDistance,closeToQueen,useFlare,QUEEN,CHAMBER,ROUTE_END,SHAFT_START,SHAFT_TOP,CHAMBER_LIP,HOLE_SCALE,recordImpact,BRANCHES,branchCenter,inChamber,isTunnelInterior,terminalDepth} from '../src/mission.js';
 import {rimRadius,bowlHeight,SINKHOLE_INNER,SINKHOLE_DEPTH} from '../src/stalheart/sinkhole-shape.js';
 
 const placement={x:QUEEN.x+37,y:QUEEN.y,z:QUEEN.z+8};
@@ -9,15 +9,15 @@ test('LiDAR starts unavailable and is processed halfway down',()=>{
   const events=tickMission(m,1,center(SHAFT_START+43),false);assert.ok(events.includes('lidar-processing'));assert.equal(m.lidarAvailable,false);
   assert.ok(tickMission(m,4,center(SHAFT_START+45),false).includes('lidar-ready'));assert.equal(m.lidarAvailable,true);
 });
-test('12 HP: each impact costs one; lamp recovers once then fails, while flares and optical vision remain usable',()=>{
+test('12 HP: each impact costs one; lamp stays on through the first hit then fails, while flares and optical vision remain usable',()=>{
   const m=createMission();assert.equal(m.integrity,12);assert.equal(m.lampState,'working');
-  assert.deepEqual(recordImpact(m),['lamp-glitch']);assert.equal(m.integrity,11);assert.equal(m.lampState,'recovering');
-  tickMission(m,3,center(20),false);assert.equal(m.lampState,'recovering');assert.ok(tickMission(m,.6,center(20),false).includes('lamp-restored'));assert.equal(m.lampState,'working');
+  assert.deepEqual(recordImpact(m),['airframe-hit']);assert.equal(m.integrity,11);assert.equal(m.lampState,'working');
+  tickMission(m,3,center(20),false);assert.equal(m.lampState,'working');assert.deepEqual(tickMission(m,.6,center(20),false),[]);assert.equal(m.lampState,'working');
   assert.deepEqual(recordImpact(m),['lamp-failed']);assert.equal(m.integrity,10);tickMission(m,4,center(20),false);assert.equal(m.lampState,'failed');assert.equal(m.lidarAvailable,false);assert.equal(useFlare(m),true);
   for(let i=0;i<10;i++)recordImpact(m);assert.equal(m.integrity,0);assert.equal(m.hits,12);recordImpact(m);assert.equal(m.integrity,0);assert.equal(m.hits,12);
   tickMission(m,.1,center(20),false);assert.equal(m.outcome,'lost');assert.equal(createMission().lampState,'working');
 });
-test('a second impact during the first outage never allows the lamp to recover',()=>{
+test('the second impact fails the lamp permanently even immediately after the first',()=>{
   const m=createMission();recordImpact(m);tickMission(m,.5,center(20),false);recordImpact(m);tickMission(m,10,center(20),false);assert.equal(m.lampState,'failed');assert.equal(m.integrity,10);
 });
 test('three sub-tunnels join at the fork; two physically enter the Queen chamber, one is sealed',()=>{
@@ -60,3 +60,8 @@ test('the full centerline is traversable in both directions without a collision 
   const bad={x:180,y:-208,z:-79};assert.equal(confine(bad),true);assert.ok(bad.x<90);
 });
 test('limb contact checks the entire segment',()=>{assert.equal(pointSegmentDistance({x:0,y:1,z:0},{x:-5,y:0,z:0},{x:5,y:0,z:0}),1);});
+
+test('the dead-end rock face stops flight at its surface, rather than inside an invisible bowl',()=>{
+  const b=BRANCHES.find(b=>b.id==='blind'),f=frameAt(b.length,b.id),depth=terminalDepth(0,0),p={x:f.c.x+f.t.x*(depth+.25),y:f.c.y+f.t.y*(depth+.25),z:f.c.z+f.t.z*(depth+.25)};
+  assert.equal(isTunnelInterior(p),false);assert.equal(confine(p),true);assert.equal(isTunnelInterior(p),true);
+});

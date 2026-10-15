@@ -67,12 +67,10 @@ function end(outcome){
   $('ending-stats').textContent=`FLIGHT ${formatTime(mission.time)} / HULL ${mission.integrity} / ${MAX_HP} HP / ${mission.payload?'PAYLOAD UNDELIVERED':'PAYLOAD ARMED'}`;
 }
 function event(type){
-  if(type==='lamp-glitch'){
-    alert('WORK LIGHT / POWER FAULT',4);say('Light’s gone. Wait…',4);
-  } else if(type==='lamp-restored'){
-    say('There. Light’s back. Carefully.',4);
+  if(type==='airframe-hit'){
+    say('I felt that. Light’s still working.',4);
   } else if(type==='lamp-failed'){
-    alert('WORK LIGHT / PERMANENT FAILURE',7);say('Lamp’s dead. Use the flares. We have to make them last.',6);
+    alert('USE THE FLARES (F) FOR TEMPORARY LIGHT',10);say('Lamp’s dead. Use the flares (F) for temporary light.',8);
   } else if(type==='lidar-processing'){
     say('I’ll try processing the LiDAR information.',5,'ISAO',.6);
   } else if(type==='lidar-ready'){
@@ -118,13 +116,13 @@ function step(dt){
   if(wall)velocity.multiplyScalar(.55);
   if((wall||limb)&&simulationTime-lastHit>1.4){
     receiveImpact(limb?(limb.kind||'tentacle'):bodyContact?bodyContact.kind:'wall');lastHit=simulationTime;
-    if(limb){const push=player.clone().sub(limb.root).normalize();velocity.addScaledVector(push,3);player.addScaledVector(push,.25);alert('CONTACT / SOMETHING HAS THE AIRFRAME',2);}
-    else alert(bodyContact?`CONTACT / ${bodyContact.kind.toUpperCase()}`:'CONTACT / CAVE WALL',2);
+    if(limb){const push=player.clone().sub(limb.root).normalize();velocity.addScaledVector(push,3);player.addScaledVector(push,.25);if(mission.hits!==2)alert('CONTACT / SOMETHING HAS THE AIRFRAME',2);}
+    else if(mission.hits!==2)alert(bodyContact?`CONTACT / ${bodyContact.kind.toUpperCase()}`:'CONTACT / CAVE WALL',2);
   }
   const events=tickMission(mission,dt,player,keys.has('KeyE')&&velocity.length()<1.8);
   for(const e of events)event(e);
   if(mode!=='playing')return;
-  if(!seen.has('wall')&&player.z<-38&&player.y>-60){seen.add('wall');say('Slowly. Wait for it to open, then go.',5);}
+  if(!seen.has('wall')&&nearestRoute(player).s>65&&nearestRoute(player).branch==='main'&&player.y>-60){seen.add('wall');say('Slowly. Wait for it to open, then go.',5);}
   if(!mission.payload&&mission.fuse<30&&!seen.has('thirty')){seen.add('thirty');say('Thirty seconds. Keep climbing.',5);audio.play('sinkhole_quake',.25);}
   if(!mission.payload&&mission.fuse<10&&!seen.has('ten')){seen.add('ten');say('Whatever happens. The charge stays.',5);}
   dialogueQueue.sort((a,b)=>a.at-b.at);
@@ -132,7 +130,7 @@ function step(dt){
   if(simulationTime>commsUntil)$('comms').classList.remove('on');
   if(simulationTime>alertUntil)$('alert').textContent='';
   impact=Math.max(0,impact-dt*.7);$('impact').style.opacity=String(impact);
-  audio.update(velocity.length(),simulationTime,player.y<SINKHOLE_THROAT-1,!keys.has('KeyE')&&mission.payload);world.update(simulationTime,mission,false,{flight,dt,yaw,pitch,reducedMotion});updateHUD();
+  const route=nearestRoute(player);audio.update(velocity.length(),simulationTime,player.y<SINKHOLE_THROAT-1,!keys.has('KeyE')&&mission.fuse>10,route.s,route.branch);world.update(simulationTime,mission,false,{flight,dt,yaw,pitch,reducedMotion});updateHUD();
 }
 function updateHUD(){
   const cinematic=mode==='surface'||mode==='detonation';
@@ -150,7 +148,7 @@ function updateHUD(){
   $('speed').textContent=`${velocity.length().toFixed(1)} m/s`;
   $('integrity').innerHTML=`${mission.integrity}<small> / ${MAX_HP} HP</small>`;$('hull-bar').style.width=`${mission.integrity/MAX_HP*100}%`;$('hull-bar').style.background=mission.integrity<=3?'var(--red)':'';
   $('sensor-mode').textContent=cinematic?'SURFACE / OPTICAL':mission.lidar?['LIDAR / DEPTH','LIDAR / PHOSPHOR','LIDAR / MOTION'][mission.lidarMode]:'OPTICAL';
-  $('sensor-status').textContent=cinematic?'OBSERVATION FEED':mission.lidar?'Q / WIDE SURVEY PULSE':mission.lampState==='working'?'WORK LIGHT / NOMINAL':mission.lampState==='recovering'?'WORK LIGHT / POWER FAULT':'WORK LIGHT LOST / FLARES F';
+  $('sensor-status').textContent=cinematic?'OBSERVATION FEED':mission.lidar?'Q / WIDE SURVEY PULSE':mission.lampState==='working'?'WORK LIGHT / NOMINAL':'WORK LIGHT LOST / FLARES F';
   $('sensor-light').style.background=mission.lampState!=='working'&&!mission.lidar?'var(--red)':'';
   $('lidar-options').hidden=!mission.lidarAvailable||cinematic;
   $('scan-key').hidden=!mission.lidarAvailable;

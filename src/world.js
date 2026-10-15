@@ -1,5 +1,5 @@
 import * as THREE from '../vendor/three.module.js';
-import { center, radius, frameAt, ringPoint, ROUTE_END, SHAFT_TOP, CHAMBER_LIP, chamberFloor, smooth, pointSegmentDistance, FLARE_COUNT, exteriorExposure } from './mission.js';
+import { center, radius, frameAt, ringPoint, ROUTE_END, SHAFT_TOP, CHAMBER_LIP, chamberFloor, smooth, pointSegmentDistance, FLARE_COUNT, exteriorExposure, nearestRoute } from './mission.js';
 import {createSinkholeEntrance} from './sinkhole.js';
 import {createNursery} from './nursery.js';
 import {createCaveNetwork} from './cave.js';
@@ -8,6 +8,7 @@ import {createTunnelCreatures} from './creatures.js';
 import {createDetonation} from './detonation.js';
 import {createFlares} from './flares.js';
 import {surveyGLSL} from './lidar.js';
+import {MAIN_TENTACLES,LEFT_TENTACLES,BLIND_TENTACLES,colonyPresence,colonyDistance} from './cave-pacing.js';
 
 const TAU=Math.PI*2;
 function random(seed=9317){return ()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};}
@@ -27,16 +28,20 @@ export async function createWorld(canvas){
   camera.rotation.order='YXZ';scene.add(camera);const player=new THREE.Vector3();
   const uniforms={uTime:{value:0},uLidar:{value:0},uScanTime:{value:-100},uScanOrigin:{value:new THREE.Vector3()},uScanMode:{value:0},uPreview:{value:0},uLampPosition:{value:new THREE.Vector3()},uLampDirection:{value:new THREE.Vector3()},uLampStrength:{value:0},uFlarePositions:{value:Array.from({length:FLARE_COUNT},()=>new THREE.Vector3())},uFlareStrengths:{value:Array(FLARE_COUNT).fill(0)}};
   const surfaces=[];
-  function material(color,roughness=.93,rock=false){
+  function material(color,roughness=.93,rock=false,bio=0){
     const mat=new THREE.MeshStandardMaterial({color,roughness,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1});
     mat.onBeforeCompile=shader=>{
       shader.uniforms.uLidar=uniforms.uLidar;shader.uniforms.uFlarePositions=uniforms.uFlarePositions;shader.uniforms.uFlareStrengths=uniforms.uFlareStrengths;
       shader.vertexShader='varying vec3 vFlareWorld;\n'+shader.vertexShader;
       shader.vertexShader=shader.vertexShader.replace('#include <project_vertex>','vec4 flarePosition=vec4(transformed,1.);\n#ifdef USE_INSTANCING\nflarePosition=instanceMatrix*flarePosition;\n#endif\nvFlareWorld=(modelMatrix*flarePosition).xyz;\n#include <project_vertex>');
       shader.fragmentShader='#define FLARE_COUNT '+FLARE_COUNT+'\n'+'uniform float uLidar;uniform vec3 uFlarePositions[FLARE_COUNT];uniform float uFlareStrengths[FLARE_COUNT];varying vec3 vFlareWorld;\n'+shader.fragmentShader;
+      if(bio){
+        shader.fragmentShader=shader.fragmentShader.replace('#include <emissivemap_fragment>',`#include <emissivemap_fragment>
+float bioVein=pow(.5+.5*sin(vFlareWorld.x*7.+sin(vFlareWorld.z*9.)*2.+vFlareWorld.y*5.),20.);totalEmissiveRadiance+=vec3(.20,.46,.30)*${bio.toFixed(4)}*bioVein;`);
+      }
       if(rock){
         shader.vertexShader='varying vec3 vRock;\n'+shader.vertexShader;
-        shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvRock=position;');
+        shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvRock=(modelMatrix*vec4(transformed,1.)).xyz;');
         shader.fragmentShader=`varying vec3 vRock;
           float hashRock(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}
           float noiseRock(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(mix(hashRock(i),hashRock(i+vec3(1,0,0)),f.x),mix(hashRock(i+vec3(0,1,0)),hashRock(i+vec3(1,1,0)),f.x),f.y),mix(mix(hashRock(i+vec3(0,0,1)),hashRock(i+vec3(1,0,1)),f.x),mix(hashRock(i+vec3(0,1,1)),hashRock(i+vec3(1,1,1)),f.x),f.y),f.z);}
@@ -45,7 +50,7 @@ export async function createWorld(canvas){
         shader.fragmentShader=shader.fragmentShader.replace('#include <normal_fragment_maps>','#include <normal_fragment_maps>\nnormal=normalize(normal+vec3(dFdx(strata),dFdy(strata),0.)*2.);');
       }
       shader.fragmentShader=shader.fragmentShader.replace('#include <dithering_fragment>','#include <dithering_fragment>\n if(uLidar > .5){float light=0.;for(int i=0;i<FLARE_COUNT;i++)light+=uFlareStrengths[i]*(1.-smoothstep(2.,12.,distance(vFlareWorld,uFlarePositions[i])));gl_FragColor.rgb=mix(vec3(.002,.005,.004),gl_FragColor.rgb,clamp(light,0.,1.));}');
-    };return mat;
+    };mat.customProgramCacheKey=()=>`cave:${rock}:${bio}`;return mat;
   }
   const stone=material(0x62675a,.93,true),flesh=material(0x535b43,.55),metal=material(0x55645e,.6);
   const pointMaterial=new THREE.ShaderMaterial({
@@ -110,7 +115,7 @@ export async function createWorld(canvas){
 
   const blast=createDetonation(scene,entrance);
 
-  const limbs=[];
+  const limbs=[],bioFlesh=material(0x535b43,.55,false,.025);
   function addLimb(s,angle,phase,branch='main'){
     const f=frameAt(s,branch),root=vec(ringPoint(s,angle,.3,branch)),length=radius(s,branch)*1.7;
     const inward=vec(f.u).multiplyScalar(-Math.cos(angle)).addScaledVector(vec(f.v),-Math.sin(angle));
@@ -118,17 +123,17 @@ export async function createWorld(canvas){
     const segments=32,radial=9,arr=new Float32Array((segments+1)*(radial+1)*3),idx=[];
     for(let i=0;i<segments;i++)for(let j=0;j<radial;j++){const k=i*(radial+1)+j;idx.push(k,k+radial+1,k+1,k+1,k+radial+1,k+radial+2);}
     const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(arr,3));geo.setIndex(idx);
-    const mesh=new THREE.Mesh(geo,flesh);scene.add(mesh);mesh.frustumCulled=false;points(geo,scene,true);
-    limbs.push({s,angle,length,phase,root,inward,side,along:vec(f.t),geo,arr,segments,radial,path:[]});
+    const mesh=new THREE.Mesh(geo,limbs.length%7===3?bioFlesh:flesh);scene.add(mesh);mesh.frustumCulled=false;points(geo,scene,true);
+    limbs.push({s,branch,bio:limbs.length%7===3,angle,length,phase,root,inward,side,along:vec(f.t),geo,arr,segments,radial,path:[]});
   }
-  for(const [i,s] of [23,30,37,44,51,58,65,72,80,88,100,110,120,130,140,150,160,170,182,195].entries()){addLimb(s,i%2?2.7:.35,i*1.7);addLimb(s+4,i%2?-.7:3.8,i*1.7+2.9);}
-  for(const [i,s] of [20,36,52,69,86,103,120,140,161].entries()){addLimb(s,.3,i*1.4,'left');addLimb(s+5,3.6,i*1.4+2.2,'left');}
-  for(const [i,s] of [25,42,61].entries()){addLimb(s,.5,i*2,'blind');addLimb(s+5,3.6,i*2+1,'blind');}
+  for(const [i,s] of MAIN_TENTACLES.entries()){addLimb(s,i%2?2.7:.35,i*1.7);addLimb(s+4,i%2?-.7:3.8,i*1.7+2.9);}
+  for(const [i,s] of LEFT_TENTACLES.entries()){addLimb(s,.3,i*1.4,'left');addLimb(s+5,3.6,i*1.4+2.2,'left');}
+  for(const [i,s] of BLIND_TENTACLES.entries()){addLimb(s,.5,i*2,'blind');addLimb(s+5,3.6,i*2+1,'blind');}
   const tangent=new THREE.Vector3(),axis=new THREE.Vector3(),normal=new THREE.Vector3(),up=new THREE.Vector3(0,1,0),alternative=new THREE.Vector3(0,0,1);
   function animateLimbs(time){
     for(const l of limbs){
       l.path.length=0;
-      const reach=l.length*(.48+.4*Math.sin(time*1.3+l.phase));
+      const life=colonyPresence(l.s,l.branch),pace=.4+life*.9,reach=l.length*(.35+life*.13+(.2+life*.2)*Math.sin(time*pace+l.phase));
       for(let i=0;i<=l.segments;i++){
         const u=i/l.segments;
         l.path.push(l.root.clone().addScaledVector(l.inward,reach*u).addScaledVector(l.side,Math.sin(u*4.8+time*1.8+l.phase)*u*2.4).addScaledVector(l.along,Math.sin(u*3.5+l.phase+time*1.1)*u*3.5));
@@ -157,7 +162,7 @@ export async function createWorld(canvas){
     uniforms.uLampPosition.value.copy(player).add(new THREE.Vector3(0,-.15,-.8).applyAxisAngle(new THREE.Vector3(0,1,0),flightData?.yaw||0));
     uniforms.uLampDirection.value.set(-Math.sin(flightData?.yaw||0),-.1,-Math.cos(flightData?.yaw||0)).normalize();uniforms.uLampStrength.value=mission.lampState==='working'?1:0;
     uniforms.uTime.value=time;uniforms.uLidar.value=mission.lidar&&!preview&&!cinematic?1:0;uniforms.uPreview.value=0;
-    const surface=cinematic||preview?1:exteriorExposure(player.y);exposure=surface;surfaceHemi.intensity=surface*.9;surfaceSun.intensity=surface*1.3;
+    const location=nearestRoute(player),surface=cinematic||preview?1:exteriorExposure(player.y,colonyDistance(location.s,location.branch));exposure=surface;surfaceHemi.intensity=surface*.9;surfaceSun.intensity=surface*1.3;
     scene.background.setRGB(.002+surface*.003,.005+surface*.004,.004+surface*.012);
     scene.fog.density=(mission.lidar||preview)? .002 : .035*(1-surface)+.005;
     dust.visible=false;
@@ -174,5 +179,5 @@ export async function createWorld(canvas){
   function reset(){flares.reset();isao.reset();creatures.reset();blast.reset();dropTime=null;drop.visible=false;uniforms.uScanTime.value=-100;}
   function render(){renderer.render(scene,camera);}
   function resize(){camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);}
-  return {camera,player,renderer,scene,update,render,resize,scan,contacts,constrainBodies:nursery.constrain,contactSamples:()=>({...nursery.contactSamples(),tentacle:limbs[0].path[16].toArray(),enemy:creatures.contactSample()}),reset,uniforms,dropFlare:flares.drop,startDetonation:blast.start,setLidarMode:(mode)=>{uniforms.uScanMode.value=mode;},flashHit:isao.flashHit,stats:()=>({exteriorExposure:exposure,...network.stats(),...nursery.stats(),...isao.stats(),...creatures.stats(),...blast.stats(),flares:flares.stats(),sinkhole:entrance.source,shaftDepth:SHAFT_TOP-CHAMBER_LIP,tentacles:limbs.length})};
+  return {camera,player,renderer,scene,update,render,resize,scan,contacts,constrainBodies:nursery.constrain,contactSamples:()=>({...nursery.contactSamples(),tentacle:limbs[0].path[16].toArray(),enemy:creatures.contactSample()}),reset,uniforms,dropFlare:flares.drop,startDetonation:blast.start,setLidarMode:(mode)=>{uniforms.uScanMode.value=mode;},flashHit:isao.flashHit,stats:()=>({exteriorExposure:exposure,...network.stats(),...nursery.stats(),...isao.stats(),...creatures.stats(),...blast.stats(),flares:flares.stats(),sinkhole:entrance.source,shaftDepth:SHAFT_TOP-CHAMBER_LIP,tentacles:limbs.length,tentaclePlacements:limbs.map(l=>({s:l.s,branch:l.branch,bio:l.bio}))})};
 }

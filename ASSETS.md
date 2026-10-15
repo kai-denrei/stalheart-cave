@@ -15,6 +15,7 @@ All assets are frozen local copies. No runtime hotlinks or source repositories a
 | `assets/audio/isao_hit_enemy.mp3` | User-provided `~/Downloads/IsaoCaveSoundsd/IsaoHittingSlimeyEnemy.mp3`, copied unchanged; slime creatures, eggs and Queen contacts |
 | `assets/audio/isao_hit_tentacle.mp3` | User-provided `~/Downloads/IsaoCaveSoundsd/IsaoHittingAWallTentacle.mp3`, copied unchanged |
 | `assets/audio/queen_laying_eggs.mp3` | User-provided `~/Downloads/IsaoCaveSoundsd/IsaoCave_TheQueenLayingEggs.mp3`, copied unchanged; first Queen encounter |
+| `assets/audio/alien_murmur.mp3` | User-provided `~/Downloads/IsaoCaveSoundsd/Stalheart_GenericCutisSounds.mp3`, copied unchanged; faint filtered distant calls |
 | `assets/audio/alien_reverb.mp3` | User-provided `~/Downloads/IsaoCaveSoundsd/IsaoCaveSounds_AlienReverb.mp3`, copied unchanged; faint quiet-time atmosphere |
 | `assets/audio/sinkhole_quake.mp3` | Stalheart's existing sinkhole sound |
 | `assets/audio/isao_strike_countdown.mp3` | Exact copy of Stalheart’s `assets/audio/isao/sol_firing_03.mp3`: “Strike inbound. Three. Two. One.”; authored number onsets 1.2226, 2.2226, 3.2226 s, duration 3.869 s; starts with 4.2226 s left on the fuse |

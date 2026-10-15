@@ -37,7 +37,7 @@ try{
   await evaluate('__below.place(38);__below.look(0,-.55);__below.advance(.2)');await capture('03-cutis-ivory');
   await evaluate('__below.start();__below.pose(0,8,0);__below.advance(.05)');
   assert.equal((await snap()).mission.integrity,12);assert.ok((await snap()).lampIntensity>0);
-  await evaluate('__below.hit();__below.advance(.05)');assert.equal((await snap()).mission.integrity,11);assert.equal((await snap()).mission.lampState,'recovering');assert.equal((await snap()).lampIntensity,0);await capture('04-lamp-flicker');
+  await evaluate('__below.hit();__below.advance(.05)');assert.equal((await snap()).mission.integrity,11);assert.equal((await snap()).mission.lampState,'working');assert.ok((await snap()).lampIntensity>0);await capture('04-lamp-flicker');
   await evaluate('__below.advance(3.6)');assert.equal((await snap()).mission.lampState,'working');assert.ok((await snap()).lampIntensity>0);
   await evaluate('__below.hit();__below.advance(.05)');assert.equal((await snap()).mission.integrity,10);assert.equal((await snap()).mission.lampState,'failed');await evaluate('__below.advance(4.2)');assert.equal((await snap()).mission.lidarAvailable,false);
   await evaluate('__below.place(49);__below.look(0,-.2)');await capture('05-light-failed');
@@ -70,7 +70,7 @@ try{
   for(const kind of ['wall','tentacle','enemy','egg','queen']){
     await evaluate('__below.start();__below.advance(.1)');
     await evaluate(kind==='wall'?'__below.pose(60,-33.2,-36);__below.advance(.05)':`(()=>{const p=__below.contactSamples()[${JSON.stringify(kind)}];__below.pose(...p);__below.advance(.05)})()`);
-    const state=await snap();assert.equal(state.mission.integrity,11,`${kind} contact costs exactly one HP`);assert.equal(state.mission.lampState,'recovering',`${kind} contact damages lamp`);assert.equal(state.mission.lastContact,kind==='enemy'?'gorogoro':kind,`${kind} uses actual collision geometry`);
+    const state=await snap();assert.equal(state.mission.integrity,11,`${kind} contact costs exactly one HP`);assert.equal(state.mission.lampState,'working',`${kind} contact preserves lamp on first hit`);assert.equal(state.mission.lastContact,kind==='enemy'?'gorogoro':kind,`${kind} uses actual collision geometry`);
   }
   }
   // Fly the whole route, including both elbows and a down/up traversal of the shaft.
@@ -138,7 +138,7 @@ try{
   assert.equal(branches.finished.mission.extracted,true,'second route permits a timed return');
   assert.ok(branches.finished.mission.fuse>0,'second route fits fuse');
   assert.deepEqual(errors,[],'no browser/WebGL errors');
-  const report={result:'PASS',suite:process.env.BELOW_ROUTE_ONLY?'routes':'full',checks:['third-person ISAO model and rotors','yaw-relative WASD','Shift down / Space up','12 Ivory, 5 native Gorogoro, 4 Reed','slow Queen movement','65-second fuse','countdown continues after escape','ground tremor / 3200 smoke puffs from inside sinkhole','Stalheart sinkhole','keyboard flight','12 HP / two lamp failures / three dim LiDAR modes','64 faster tentacles','ten gravity-driven flares','pause freezes flares','vertical shaft','180 m chamber / 1600 eggs','egg laying','no placement marker','two free bomb positions','all endings','restart restocks flares','continuous return flight','console clean'],flight,branches,snapshot:await snap(),errors};
+  const report={result:'PASS',suite:process.env.BELOW_ROUTE_ONLY?'routes':'full',checks:['third-person ISAO model and rotors','yaw-relative WASD','Shift down / Space up','12 Ivory, 5 native Gorogoro, 4 Reed','slow Queen movement','65-second fuse','countdown continues after escape','ground tremor / 3200 smoke puffs from inside sinkhole','Stalheart sinkhole','keyboard flight','12 HP / second-hit lamp failure / three dim LiDAR modes','64 faster tentacles','ten gravity-driven flares','pause freezes flares','vertical shaft','180 m chamber / 1600 eggs','egg laying','no placement marker','two free bomb positions','all endings','restart restocks flares','continuous return flight','console clean'],flight,branches,snapshot:await snap(),errors};
   await writeFile(new URL('../artifacts/browser-report.json',import.meta.url),JSON.stringify(report,null,2));console.log(JSON.stringify({result:report.result,checks:report.checks,returnMargin:flight.finished.mission.fuse,secondRouteMargin:branches.finished.mission.fuse,hull:flight.finished.mission.integrity,milestones:flight.milestones,errors},null,2));
 }finally{
   ws?.close();chrome.kill();await new Promise(r=>server.close(r));await rm(profile,{recursive:true,force:true});

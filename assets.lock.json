@@ -224,6 +224,10 @@
     {
       "path": "src/fx/reed/physics/soft-body.js",
       "sha256": "a55bbb48d322cc14be5a50dce4e8d37b572a87bb76c0af4fc653c03faa2ff8f6"
+    },
+    {
+      "path": "assets/audio/alien_murmur.mp3",
+      "sha256": "2b845691a64101dab25b21e25eba6bd275e4e3becedb9c06f6e52a58aaa39304"
     }
   ],
   "sinkholeAdapterSource": {

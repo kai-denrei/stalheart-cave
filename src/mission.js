@@ -16,7 +16,7 @@ export const ROUTE_END=SHAFT_START+(SHAFT_TOP-CHAMBER_LIP);
 
 // The bowl remains exterior. Darkness starts only after crossing its throat.
 export const SINKHOLE_THROAT=-HOLE_SCALE*SINKHOLE_DEPTH;
-export function exteriorExposure(y){return smooth(SINKHOLE_THROAT-7,SINKHOLE_THROAT-1,y);}
+export function exteriorExposure(y,s=0){return smooth(SINKHOLE_THROAT-38,SINKHOLE_THROAT-1,y)*(1-smooth(4,65,s));}
 
 export function center(s){
   s=clamp(s,0,ROUTE_END);const throat=-HOLE_SCALE*SINKHOLE_DEPTH;
@@ -38,6 +38,12 @@ export function wallRadius(s,a,branch='main'){
   const noise=.065*Math.sin(a*5+s*.11)+.045*Math.cos(a*9-s*.07)+.045*Math.sin(s*.83+a*7)+.025*Math.cos(s*1.4-a*13);
   const rim=branch==='main'?(rimRadius(a)-1)*(1-smooth(0,8,s)):0;
   return radius(s,branch)*(1+rim+noise*(branch==='main'?smooth(0,8,s)*(1-smooth(ROUTE_END-12,ROUTE_END,s)):1));
+}
+export function terminalDepth(r,a){return Math.max(0,1-r*r)*(1.15+r*.32*Math.sin(a*7+r*11)+r*.22*Math.cos(a*3-r*17));}
+function terminalOverrun(p,b,margin=0){
+  const f=frameAt(b.length,b.id),x=p.x-f.c.x,y=p.y-f.c.y,z=p.z-f.c.z,along=x*f.t.x+y*f.t.y+z*f.t.z;
+  const u=x*f.u.x+y*f.u.y+z*f.u.z,v=x*f.v.x+y*f.v.y+z*f.v.z,a=Math.atan2(v,u),r=Math.hypot(u,v)/wallRadius(b.length,a,b.id);
+  return {over:along-terminalDepth(r,a)+margin,t:f.t};
 }
 export function ringPoint(s,a,inset=0,branch='main'){const f=frameAt(s,branch),r=wallRadius(s,a,branch)-inset;return {x:f.c.x+r*(f.u.x*Math.cos(a)+f.v.x*Math.sin(a)),y:f.c.y+r*(f.u.y*Math.cos(a)+f.v.y*Math.sin(a)),z:f.c.z+r*(f.u.z*Math.cos(a)+f.v.z*Math.sin(a))};}
 // The three sub-tunnels share a real junction, with two open routes to the Queen.
@@ -71,7 +77,7 @@ function nearestOn(b,p){
 export function nearestRoute(p){let best=null;for(const b of BRANCHES){const n=nearestOn(b,p);if(!best||n.d<best.d)best=n;}return best;}
 function wallAngle(p,n){const f=frameAt(n.s,n.branch),x=p.x-n.c.x,y=p.y-n.c.y,z=p.z-n.c.z;return Math.atan2(x*f.v.x+y*f.v.y+z*f.v.z,x*f.u.x+y*f.u.y+z*f.u.z);}
 export function isTunnelInterior(p,margin=0,exclude=null){
-  for(const b of BRANCHES){if(b.id===exclude||['x','y','z'].some(a=>p[a]<b.bounds.min[a]||p[a]>b.bounds.max[a]))continue;const n=nearestOn(b,p);if(n.d<wallRadius(n.s,wallAngle(p,n),b.id)-margin)return true;}return false;
+  for(const b of BRANCHES){if(b.id===exclude||['x','y','z'].some(a=>p[a]<b.bounds.min[a]||p[a]>b.bounds.max[a]))continue;const n=nearestOn(b,p);if(n.d<wallRadius(n.s,wallAngle(p,n),b.id)-margin&&(b.toQueen||terminalOverrun(p,b,margin).over<=0))return true;}return false;
 }
 export function chamberFloor(x,z){const q=((x-CHAMBER.x)/CHAMBER.r)**2+((z-CHAMBER.z)/CHAMBER.r)**2;return CHAMBER.y-CHAMBER.ry*Math.sqrt(Math.max(0,1-q));}
 export function inChamber(p,margin=0){return ((p.x-CHAMBER.x)/(CHAMBER.r-margin))**2+((p.y-CHAMBER.y)/(CHAMBER.ry-margin))**2+((p.z-CHAMBER.z)/(CHAMBER.r-margin))**2<=1;}
@@ -83,7 +89,7 @@ export function confine(p,margin=.65){
   }
   if(isTunnelInterior(p,margin)||inChamber(p,margin))return false;
   let tube=null,tubeDistance=Infinity;
-  for(const b of BRANCHES){const n=nearestOn(b,p),limit=wallRadius(n.s,wallAngle(p,n),b.id)-margin,d=n.d||1;const c={x:n.c.x+(p.x-n.c.x)/d*limit,y:n.c.y+(p.y-n.c.y)/d*limit,z:n.c.z+(p.z-n.c.z)/d*limit};const correction=distance(p,c);if(correction<tubeDistance){tubeDistance=correction;tube=c;}}
+  for(const b of BRANCHES){const n=nearestOn(b,p),limit=wallRadius(n.s,wallAngle(p,n),b.id)-margin,d=n.d||1;const c={x:n.c.x+(p.x-n.c.x)/d*limit,y:n.c.y+(p.y-n.c.y)/d*limit,z:n.c.z+(p.z-n.c.z)/d*limit};if(!b.toQueen){const cap=terminalOverrun(c,b,margin);if(cap.over>0){c.x-=cap.t.x*cap.over;c.y-=cap.t.y*cap.over;c.z-=cap.t.z*cap.over;}}const correction=distance(p,c);if(correction<tubeDistance){tubeDistance=correction;tube=c;}}
   const rx=CHAMBER.r-margin,ry=CHAMBER.ry-margin,ex=(p.x-CHAMBER.x)/rx,ey=(p.y-CHAMBER.y)/ry,ez=(p.z-CHAMBER.z)/rx,k=Math.hypot(ex,ey,ez);
   const chamber={x:CHAMBER.x+ex/k*rx,y:CHAMBER.y+ey/k*ry,z:CHAMBER.z+ez/k*rx};
   const correction=distance(p,tube)<distance(p,chamber)?tube:chamber;
@@ -93,18 +99,17 @@ export function pointSegmentDistance(p,a,b){const dx=b.x-a.x,dy=b.y-a.y,dz=b.z-a
 // A broad region around the Queen, never a world-space waypoint or exact socket.
 export function closeToQueen(p){return p.y<QUEEN.y+9&&p.y>QUEEN.baseY-8&&Math.hypot(p.x-QUEEN.x,p.z-QUEEN.z)<49&&inChamber(p,1);}
 export const MAX_HP=12;
-export function createMission(){return {phase:'descent',integrity:MAX_HP,hits:0,lampState:'working',lampRecoverAt:0,lidarAvailable:false,lidarProcessingAt:0,lidar:false,lidarMode:0,payload:true,armProgress:0,bombPosition:null,fuse:FUSE,time:0,nursery:false,shaftSeen:false,deadEndSeen:false,flares:FLARE_COUNT,extracted:false,signalLost:false,detonated:false,outcome:null};}
+export function createMission(){return {phase:'descent',integrity:MAX_HP,hits:0,lampState:'working',lidarAvailable:false,lidarProcessingAt:0,lidar:false,lidarMode:0,payload:true,armProgress:0,bombPosition:null,fuse:FUSE,time:0,nursery:false,shaftSeen:false,deadEndSeen:false,flares:FLARE_COUNT,extracted:false,signalLost:false,detonated:false,outcome:null};}
 export function recordImpact(m){
   if(m.outcome||m.extracted||m.signalLost||m.integrity<=0)return [];
   m.integrity=Math.max(0,m.integrity-1);m.hits++;
-  if(m.hits===1){m.lampState='recovering';m.lampRecoverAt=m.time+3.5;return ['lamp-glitch'];}
-  if(m.hits===2){m.lampState='failed';m.lampRecoverAt=0;return ['lamp-failed'];}
+  if(m.hits===1)return ['airframe-hit'];
+  if(m.hits===2){m.lampState='failed';return ['lamp-failed'];}
   return [];
 }
 export function useFlare(m){if(m.outcome||m.extracted||m.signalLost||m.flares<=0)return false;m.flares--;return true;}
 export function tickMission(m,dt,p,arming){
   if(m.outcome)return [];const events=[];m.time+=dt;
-  if(m.lampState==='recovering'&&m.time>=m.lampRecoverAt){m.lampState='working';events.push('lamp-restored');}
   if(!m.lidarAvailable&&!m.lidarProcessingAt&&p.y<=-86){m.lidarProcessingAt=m.time+4;events.push('lidar-processing');}
   if(!m.lidarAvailable&&m.lidarProcessingAt&&m.time>=m.lidarProcessingAt){m.lidarAvailable=true;events.push('lidar-ready');}
   if(!m.deadEndSeen){const n=nearestRoute(p),b=BRANCHES.find(b=>b.id===n.branch);if(b.id==='blind'&&n.s>b.length-13){m.deadEndSeen=true;events.push('dead-end');}}
