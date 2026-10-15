@@ -3,17 +3,17 @@ import assert from 'node:assert/strict';
 import * as THREE from '../vendor/three.module.js';
 import {createFlareBody,stepFlare} from '../src/flare-physics.js';
 import {createFlares} from '../src/flares.js';
-import {center,ringPoint,FLARE_COUNT} from '../src/mission.js';
+import {center,ringPoint,FLARE_COUNT,SHAFT_START} from '../src/mission.js';
 
 test('flares accelerate down the shaft under gravity, independent of update rate',()=>{
-  const start=center(140),a=createFlareBody(start),b=createFlareBody(start);
+  const start=center(SHAFT_START+35),a=createFlareBody(start),b=createFlareBody(start);
   stepFlare(a,2);for(let i=0;i<120;i++)stepFlare(b,1/60);
   assert.ok(Math.abs(a.position.y-(start.y-.45-.4*2-9.81*2))<.1);
   assert.ok(Math.abs(a.position.y-b.position.y)<1e-8);
   assert.ok(a.velocity.y<-20);assert.equal(a.resting,false);
 });
 test('a flare touching a vertical shaft wall keeps falling into the chamber',()=>{
-  const body=createFlareBody(ringPoint(140,0,.25));stepFlare(body,3);
+  const body=createFlareBody(ringPoint(SHAFT_START+35,0,.25));stepFlare(body,3);
   assert.ok(body.position.y<-125);assert.ok(body.velocity.y<-29);assert.equal(body.resting,false);
   stepFlare(body,3);assert.ok(body.position.y<-250,'no wall attachment along the shaft');
 });
@@ -24,8 +24,8 @@ test('flares bounce and settle on passage and chamber floors',()=>{
   }
 });
 test('all ten physical flares illuminate their falling positions and reset together',()=>{
-  const uniforms={uFlarePositions:{value:Array.from({length:FLARE_COUNT},()=>new THREE.Vector3())},uFlareStrengths:{value:Array(FLARE_COUNT).fill(0)}};
-  const flares=createFlares(new THREE.Scene(),uniforms),camera=new THREE.PerspectiveCamera(),p=center(140);
+  const uniforms={uFlarePositions:{value:Array.from({length:FLARE_COUNT,SHAFT_START},()=>new THREE.Vector3())},uFlareStrengths:{value:Array(FLARE_COUNT).fill(0)}};
+  const flares=createFlares(new THREE.Scene(),uniforms),camera=new THREE.PerspectiveCamera(),p=center(SHAFT_START+35);
   for(let i=0;i<10;i++)assert.equal(flares.drop(p,0,0),true);
   assert.equal(flares.drop(p,0,0),false);flares.update(2,camera);
   assert.equal(flares.stats().length,10);

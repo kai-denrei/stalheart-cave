@@ -26,13 +26,13 @@ test('smoke is born below the throat and stays in a narrow conduit before erupti
   for(let seed=0;seed<1;seed+=.01){smokeParticle(seed,0,p);assert.equal(p[1],SMOKE_SOURCE_Y);assert.equal(p[4],0);
     for(let time=0;time<SMOKE_SURFACE_DELAY;time+=.01){smokeParticle(seed,time,p);assert.ok(p[1]<0,'no above-ground cloud at detonation');if(p[1]<=SINKHOLE_THROAT)assert.ok(Math.hypot(p[0],p[2])+p[3]/2<4.3,'puff fits inside the throat');}
   }
-  smokeParticle(.1,.7,p);assert.ok(p[1]>40);assert.ok(p[3]>10);assert.ok(p[4]>0);
+  smokeParticle(.1,.7,p);assert.ok(p[1]>5&&p[1]<30);assert.ok(p[3]>10);assert.ok(p[4]>0);
 });
-test('sustained smoke fills the whole column instead of leaving a gap above the hole',()=>{
-  const p=new Float64Array(5);
-  for(const age of [1.2,2,3,4,6]){const bands=new Set();
-    for(let seed=.65;seed<1;seed+=.0005){smokeParticle(seed,age,p);if(p[4]>.01&&p[1]>=0&&p[1]<80)bands.add(Math.floor(p[1]/10));}
-    for(let band=0;band<8;band++)assert.ok(bands.has(band),`missing smoke at ${band*10} m, age ${age}`);
+test('the smoke retains a connected vent but accumulates and spreads at ground level',()=>{
+  const p=new Float64Array(5);let previousRadius=0;
+  for(const age of [1.2,2,3,4,6]){let radius=0,ground=0,vent=0;
+    for(let seed=0;seed<1;seed+=.001){smokeParticle(seed,age,p);if(p[4]<.01)continue;assert.ok(p[1]<30,'no rising smoke tower');if(p[1]>0){radius=Math.max(radius,Math.hypot(p[0],p[2]));if(p[1]<12)ground++;if(Math.hypot(p[0],p[2])<10)vent++;}}
+    assert.ok(ground>300,'dense low cloud');assert.ok(vent>5,'smoke still joins the opening');assert.ok(radius>previousRadius,'cloud spreads outwards');previousRadius=radius;
   }
 });
 test('Reed uses the native physical reach, pull and settle cycle with moving skin',async()=>{
@@ -57,4 +57,13 @@ test('alien calls wait for the quiet approach and become more frequent deeper do
   const early=sound.due(100,60);assert.ok(early.volume<.04);assert.equal(sound.due(115,60),null);
   const deep=sound.due(115,160);assert.ok(deep.volume>early.volume&&deep.volume<.07);assert.ok(deep.cutoff<1000&&deep.rate<1&&Math.abs(deep.pan)>.6);
   sound.reset();assert.equal(sound.due(10,160),null);
+});
+
+import {createQueenActor} from '../src/queen-motion.js';
+test('the Queen slowly reaches, plants and pulls with the native six-limb Ovum body',async()=>{
+  const bin=await readFile(new URL('../assets/models/ovum.bin',import.meta.url)),meta=JSON.parse(await readFile(new URL('../assets/models/ovum.json',import.meta.url),'utf8'));
+  const actor=createQueenActor(bin.buffer.slice(bin.byteOffset,bin.byteOffset+bin.byteLength),meta),rest=actor.body.surface.positions.slice(),phases=new Set();
+  for(let i=0;i<1800;i++){actor.update(1/60);phases.add(actor.motion.pursuit.phase);}
+  assert.equal(actor.body.cage.limbCount,6);assert.equal(actor.stats().clockScale,.2);assert.ok(actor.body.isFinite());assert.notDeepEqual(actor.body.surface.positions,rest);assert.deepEqual([...phases].sort(),['pull','reach','settle']);
+  actor.reset();assert.ok(actor.body.isFinite());assert.equal(actor.motion.pursuit.burst,0);
 });

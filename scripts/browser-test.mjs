@@ -34,7 +34,7 @@ try{
   if(!process.env.BELOW_ROUTE_ONLY){
   const start=await snap();await key('KeyW');await wait(600);await key('KeyW','keyUp');const moved=await snap();assert.ok(moved.position[2]<start.position[2]-.5,'keyboard flight');assert.ok(Math.abs(moved.position[1]-start.position[1])<.01,'W does not change altitude');
   await key('ShiftLeft');await wait(600);await key('ShiftLeft','keyUp');assert.ok((await snap()).position[1]<moved.position[1]-.5,'Shift descends');await evaluate('__below.advance(.8)');const low=await snap();await key('Space');await wait(650);await key('Space','keyUp');assert.ok((await snap()).position[1]>low.position[1]+.5,'Space climbs');
-  await evaluate('__below.place(38);__below.look(0,-.55);__below.advance(.2)');await capture('03-cutis-ivory');
+  await evaluate('__below.place(58);__below.look(0,-.55);__below.advance(.2)');await capture('03-cutis-ivory');
   await evaluate('__below.start();__below.pose(0,8,0);__below.advance(.05)');
   assert.equal((await snap()).mission.integrity,12);assert.ok((await snap()).lampIntensity>0);
   await evaluate('__below.hit();__below.advance(.05)');assert.equal((await snap()).mission.integrity,11);assert.equal((await snap()).mission.lampState,'working');assert.ok((await snap()).lampIntensity>0);await capture('04-lamp-flicker');
@@ -43,10 +43,10 @@ try{
   await evaluate('__below.place(49);__below.look(0,-.2)');await capture('05-light-failed');
   await key('KeyF');await key('KeyF','keyUp');await evaluate('__below.advance(3)');assert.equal((await snap()).mission.flares,9);assert.equal((await snap()).flares.length,1);await capture('04-flare');
   await key('KeyQ');await key('KeyQ','keyUp');assert.equal((await snap()).mission.lidar,false,'LiDAR remains locked before halfway');
-  await evaluate('__below.place(155);__below.advance(4.3)');assert.equal((await snap()).mission.lidarAvailable,true);
+  await evaluate('(async()=>{const {SHAFT_START}=await import("./src/mission.js");__below.place(SHAFT_START+55);__below.advance(4.3)})()');assert.equal((await snap()).mission.lidarAvailable,true);
   await key('KeyQ');await key('KeyQ','keyUp');await wait(900);assert.equal((await snap()).mission.lidar,true);await capture('06-lidar-restores-view');
   for(const mode of [1,2,0]){await evaluate(`__below.selectView(${mode});__below.advance(.05)`);assert.equal((await snap()).mission.lidarMode,mode);}await evaluate('__below.selectView("optical")');assert.equal((await snap()).mission.lidar,false,'optics still see flares after lamp failure');await evaluate('__below.selectView(0)');
-  await evaluate('__below.place(137);__below.look(0,-1.5);__below.advance(.1);__below.scan()');await wait(1400);await capture('05-vertical-shaft');
+  await evaluate('(async()=>{const {SHAFT_START}=await import("./src/mission.js");__below.place(SHAFT_START+35);__below.look(0,-1.5);__below.advance(.1);__below.scan()})()');await wait(1400);await capture('05-vertical-shaft');
   await key('KeyF');await key('KeyF','keyUp');await evaluate('__below.advance(3)');const shaftFlare=(await snap()).flares[1];assert.ok(shaftFlare.position[1]<-110,'flare accelerates down the shaft under gravity');assert.ok(shaftFlare.velocity[1]<-20,'flare does not attach to shaft wall');
   await key('KeyP');const paused=await snap();await wait(200);assert.equal((await snap()).mission.time,paused.mission.time);assert.deepEqual((await snap()).flares,paused.flares);assert.equal(paused.mode,'paused');
   await key('KeyP','keyUp');await key('KeyP');await key('KeyP','keyUp');await wait(100);assert.equal((await snap()).mode,'playing');
@@ -118,15 +118,15 @@ try{
       if(state.mission.lidarAvailable)__below.scan();
     }if(n>=180)stuck.push({goal,state:__below.snapshot()});}
     function stop(){for(const code of ['KeyW','Space','ShiftLeft'])press(code,'keyup');}
-    __below.pose(0,-33.2,-36);
+    {const junction=center(48);__below.pose(junction.x,junction.y,junction.z);}
     const blind=BRANCHES.find(b=>b.id==='blind'),left=BRANCHES.find(b=>b.id==='left');
     for(let s=0;s<blind.length;s+=3)go(lane(s,'blind'));go(branchCenter('blind',blind.length));stop();const deadEnd=__below.snapshot();
     for(let s=blind.length-3;s>0;s-=3)go(lane(s,'blind'));go(center(48));stop();
     // Reset damage between independent branch traversals; begin at the shared junction.
-    __below.start();__below.pose(0,-33.2,-36);
+    __below.start();{const junction=center(48);__below.pose(junction.x,junction.y,junction.z);}
     for(let s=0;s<left.length;s+=3)go(lane(s,'left'));go(branchCenter('left',left.length));
-    go({x:-38,y:-204,z:-93});go({x:-39,y:-219,z:-98});stop();__below.advance(1);press('KeyE');__below.advance(3.2);press('KeyE','keyup');const planted=__below.snapshot();
-    go({x:-38,y:-204,z:-93});go(branchCenter('left',left.length));
+    go({x:-63,y:-211,z:-114});go({x:-39,y:-219,z:-98});stop();__below.advance(1);press('KeyE');__below.advance(3.2);press('KeyE','keyup');const planted=__below.snapshot();
+    go({x:-63,y:-211,z:-114});go(branchCenter('left',left.length));
     for(let s=left.length-3;s>0;s-=3)go(lane(s,'left'));go(center(48));
     for(let s=44;s>=0;s-=4)go(center(s));go({x:0,y:4,z:0});stop();return {deadEnd,planted,finished:__below.snapshot(),stuck};
   })()`);

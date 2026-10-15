@@ -86,19 +86,19 @@ float bioVein=pow(.5+.5*sin(vFlareWorld.x*7.+sin(vFlareWorld.z*9.)*2.+vFlareWorl
     if(!geometry.getAttribute('aMotion'))geometry.setAttribute('aMotion',new THREE.BufferAttribute(new Float32Array(geometry.attributes.position.count).fill(moving?1:0),1));
     const p=new THREE.Points(geometry,pointMaterial);p.frustumCulled=false;parent.add(p);return p;
   }
-  function sample(geometry,count){
+  function sample(geometry,count,bound=false){
     const p=geometry.attributes.position,indices=geometry.index?.array;
     const triangles=indices?indices.length/3:p.count/3;
     const areas=new Float64Array(triangles);let area=0;
     const a=new THREE.Vector3(),b=new THREE.Vector3(),c=new THREE.Vector3(),ab=new THREE.Vector3(),ac=new THREE.Vector3();
     for(let i=0;i<triangles;i++){a.fromBufferAttribute(p,indices?indices[i*3]:i*3);b.fromBufferAttribute(p,indices?indices[i*3+1]:i*3+1);c.fromBufferAttribute(p,indices?indices[i*3+2]:i*3+2);area+=ab.subVectors(b,a).cross(ac.subVectors(c,a)).length()*.5;areas[i]=area;}
-    const out=new Float32Array(count*3);
+    const out=new Float32Array(count*3),ids=bound?new Uint32Array(count*3):null,weights=bound?new Float32Array(count*3):null;
     for(let i=0;i<count;i++){
       const r=rand()*area;let lo=0,hi=triangles-1;while(lo<hi){const mid=(lo+hi)>>1;if(areas[mid]<r)lo=mid+1;else hi=mid;}
       a.fromBufferAttribute(p,indices?indices[lo*3]:lo*3);b.fromBufferAttribute(p,indices?indices[lo*3+1]:lo*3+1);c.fromBufferAttribute(p,indices?indices[lo*3+2]:lo*3+2);
-      const u=Math.sqrt(rand()),v=rand();out[i*3]=a.x*(1-u)+b.x*u*(1-v)+c.x*u*v;out[i*3+1]=a.y*(1-u)+b.y*u*(1-v)+c.y*u*v;out[i*3+2]=a.z*(1-u)+b.z*u*(1-v)+c.z*u*v;
+      const u=Math.sqrt(rand()),v=rand();if(bound){for(let j=0;j<3;j++)ids[i*3+j]=indices?indices[lo*3+j]:lo*3+j;weights.set([1-u,u*(1-v),u*v],i*3);}out[i*3]=a.x*(1-u)+b.x*u*(1-v)+c.x*u*v;out[i*3+1]=a.y*(1-u)+b.y*u*(1-v)+c.y*u*v;out[i*3+2]=a.z*(1-u)+b.z*u*(1-v)+c.z*u*v;
     }
-    return new THREE.BufferGeometry().setAttribute('position',new THREE.BufferAttribute(out,3));
+    const sampled=new THREE.BufferGeometry().setAttribute('position',new THREE.BufferAttribute(out,3));if(bound)sampled.userData.binding={ids,weights};return sampled;
   }
   function body(geometry,mat,parent=scene,samples=1500){const mesh=new THREE.Mesh(geometry,mat);parent.add(mesh);surfaces.push(mesh);if(samples)points(sample(geometry,samples),mesh,parent.name.includes('Queen')||parent.name.includes('Cutis'));return mesh;}
 
@@ -158,7 +158,7 @@ float bioVein=pow(.5+.5*sin(vFlareWorld.x*7.+sin(vFlareWorld.z*9.)*2.+vFlareWorl
     const cinematic=!!flightData?.cinematic;
     if(flightData)isao.update(time,flightData.dt,player,flightData.yaw,flightData.pitch,flightData.flight,mission);
     isao.rig.visible=!preview&&(!cinematic||mission.extracted);
-    if(cinematic){const state=blast.stats(),age=blast.ageAt(time),q=flightData.reducedMotion||!state.detonationActive?0:Math.max(0,1-age/5)*1.5;const pull=smooth(.35,1.15,age);camera.position.set(31+pull*115+Math.sin(time*47)*q,29+pull*73+Math.cos(time*41)*q,39+pull*145);camera.lookAt(0,-3+pull*58,0);}
+    if(cinematic){const state=blast.stats(),age=blast.ageAt(time),q=flightData.reducedMotion||!state.detonationActive?0:Math.max(0,1-age/5)*1.5;const pull=smooth(.35,1.15,age);camera.position.set(31+pull*115+Math.sin(time*47)*q,29+pull*73+Math.cos(time*41)*q,39+pull*145);camera.lookAt(0,-3+pull*7,0);}
     uniforms.uLampPosition.value.copy(player).add(new THREE.Vector3(0,-.15,-.8).applyAxisAngle(new THREE.Vector3(0,1,0),flightData?.yaw||0));
     uniforms.uLampDirection.value.set(-Math.sin(flightData?.yaw||0),-.1,-Math.cos(flightData?.yaw||0)).normalize();uniforms.uLampStrength.value=mission.lampState==='working'?1:0;
     uniforms.uTime.value=time;uniforms.uLidar.value=mission.lidar&&!preview&&!cinematic?1:0;uniforms.uPreview.value=0;
@@ -176,7 +176,7 @@ float bioVein=pow(.5+.5*sin(vFlareWorld.x*7.+sin(vFlareWorld.z*9.)*2.+vFlareWorl
   function contacts(p){
     for(const l of limbs){if(p.distanceTo(l.root)>l.length+2)continue;for(let i=1;i<l.path.length;i++)if(pointSegmentDistance(p,l.path[i-1],l.path[i])<.62+.7*(1-i/l.path.length))return l;}return creatures.contacts(p);
   }
-  function reset(){flares.reset();isao.reset();creatures.reset();blast.reset();dropTime=null;drop.visible=false;uniforms.uScanTime.value=-100;}
+  function reset(){flares.reset();isao.reset();creatures.reset();nursery.reset();blast.reset();dropTime=null;drop.visible=false;uniforms.uScanTime.value=-100;}
   function render(){renderer.render(scene,camera);}
   function resize(){camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);}
   return {camera,player,renderer,scene,update,render,resize,scan,contacts,constrainBodies:nursery.constrain,contactSamples:()=>({...nursery.contactSamples(),tentacle:limbs[0].path[16].toArray(),enemy:creatures.contactSample()}),reset,uniforms,dropFlare:flares.drop,startDetonation:blast.start,setLidarMode:(mode)=>{uniforms.uScanMode.value=mode;},flashHit:isao.flashHit,stats:()=>({exteriorExposure:exposure,...network.stats(),...nursery.stats(),...isao.stats(),...creatures.stats(),...blast.stats(),flares:flares.stats(),sinkhole:entrance.source,shaftDepth:SHAFT_TOP-CHAMBER_LIP,tentacles:limbs.length,tentaclePlacements:limbs.map(l=>({s:l.s,branch:l.branch,bio:l.bio}))})};

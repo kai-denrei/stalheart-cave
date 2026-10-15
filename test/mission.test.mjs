@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {center,frameAt,ringPoint,wallRadius,confine,createMission,tickMission,FUSE,pointSegmentDistance,closeToQueen,useFlare,QUEEN,CHAMBER,ROUTE_END,SHAFT_START,SHAFT_TOP,CHAMBER_LIP,HOLE_SCALE,recordImpact,BRANCHES,branchCenter,inChamber,isTunnelInterior,terminalDepth} from '../src/mission.js';
+import {center,frameAt,ringPoint,wallRadius,confine,createMission,tickMission,FUSE,pointSegmentDistance,closeToQueen,useFlare,QUEEN,CHAMBER,ROUTE_END,SHAFT_START,SHAFT_TOP,CHAMBER_LIP,HOLE_SCALE,recordImpact,BRANCHES,branchCenter,inChamber,isTunnelInterior,terminalDepth,MAZE_LENGTH} from '../src/mission.js';
 import {rimRadius,bowlHeight,SINKHOLE_INNER,SINKHOLE_DEPTH} from '../src/stalheart/sinkhole-shape.js';
 
 const placement={x:QUEEN.x+37,y:QUEEN.y,z:QUEEN.z+8};
@@ -64,4 +64,10 @@ test('limb contact checks the entire segment',()=>{assert.equal(pointSegmentDist
 test('the dead-end rock face stops flight at its surface, rather than inside an invisible bowl',()=>{
   const b=BRANCHES.find(b=>b.id==='blind'),f=frameAt(b.length,b.id),depth=terminalDepth(0,0),p={x:f.c.x+f.t.x*(depth+.25),y:f.c.y+f.t.y*(depth+.25),z:f.c.z+f.t.z*(depth+.25)};
   assert.equal(isTunnelInterior(p),false);assert.equal(confine(p),true);assert.equal(isTunnelInterior(p),true);
+});
+
+test('the extended maze has real bends and the hive entrances are on different sides',()=>{
+  assert.ok(MAZE_LENGTH>100);assert.ok(MAZE_LENGTH<125);
+  let min=0,max=0;for(let s=27;s<SHAFT_START-19;s++){const p=center(s);min=Math.min(min,p.x);max=Math.max(max,p.x);}assert.ok(min<-19&&max>21);
+  const left=BRANCHES.find(b=>b.id==='left'),side=branchCenter('left',left.length),top=center(ROUTE_END);assert.ok(Math.hypot(side.x-top.x,side.y-top.y,side.z-top.z)>95);assert.ok(side.x<-70);assert.ok(side.y<CHAMBER.y+5);
 });

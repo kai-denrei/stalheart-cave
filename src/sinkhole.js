@@ -16,6 +16,10 @@ export function createSinkholeEntrance(scene){
     const light=Math.pow(1-Math.min(1,-y/SINKHOLE_DEPTH),1.2);colors.push(earth.r*light,earth.g*light,earth.b*light);
     if(j<rings&&i<segments){const k=j*(segments+1)+i;indices.push(k,k+segments+1,k+1,k+1,k+segments+1,k+segments+2);}
   }
+  // The surrounding ground shares the bowl's rim vertices; no overlapping
+  // annulus or exposed slivers between separate surfaces.
+  const outerStart=positions.length/3,path=new THREE.Color(...look.floors.path);
+  for(let i=0;i<=segments;i++){const a=i/segments*Math.PI*2,x=Math.cos(a)*32,z=Math.sin(a)*32;positions.push(x,0,z);uv.push(x*3.5/2.6,z*3.5/2.6);colors.push(path.r,path.g,path.b);if(i<segments)indices.push(i,outerStart+i,i+1,i+1,outerStart+i,outerStart+i+1);}
   const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));geometry.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));geometry.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));geometry.setIndex(indices);geometry.computeVertexNormals();
   const bowl=new THREE.Mesh(geometry,new THREE.MeshStandardMaterial({roughness:1,vertexColors:true,side:THREE.DoubleSide}));group.add(bowl);
   const rubble=new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1,0),new THREE.MeshStandardMaterial({color:new THREE.Color(...look.walls.top),roughness:1}),36),dummy=new THREE.Object3D();
@@ -30,9 +34,6 @@ export function createSinkholeEntrance(scene){
     for(const a of [i/96*Math.PI*2,(i+1)/96*Math.PI*2])contourPoints.push(Math.cos(a)*rimRadius(a)*ratio,bowlHeight(a,ratio)+.003,Math.sin(a)*rimRadius(a)*ratio);
   }
   const contours=new THREE.LineSegments(new THREE.BufferGeometry().setAttribute('position',new THREE.Float32BufferAttribute(contourPoints,3)),new THREE.LineBasicMaterial({color:look.edges.color,transparent:true,opacity:.6,depthWrite:false,blending:THREE.AdditiveBlending}));group.add(contours);
-  const ground=[],groundIndices=[];
-  for(let j=0;j<2;j++)for(let i=0;i<=segments;i++){const a=i/segments*Math.PI*2,r=j?32:rimRadius(a);ground.push(Math.cos(a)*r,0,Math.sin(a)*r);if(j===0&&i<segments){const k=i;groundIndices.push(k,k+1,k+segments+1,k+1,k+segments+2,k+segments+1);}}
-  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(ground,3));g.setIndex(groundIndices);g.computeVertexNormals();group.add(new THREE.Mesh(g,new THREE.MeshStandardMaterial({color:new THREE.Color(...look.floors.path),roughness:1,side:THREE.DoubleSide})));
   group.scale.setScalar(HOLE_SCALE);
   const seams=[];
   for(let x=-60;x<=60;x+=8)for(let z=-60;z<60;z+=8)for(const [a,b] of [[[x,z],[x+8,z]],[[x,z],[x,z+8]]]){

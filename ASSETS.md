@@ -7,10 +7,10 @@ All assets are frozen local copies. No runtime hotlinks or source repositories a
 | `vendor/three.module.js` | `../stalheart/vendor/three.module.js`, Three.js r160, MIT (license below) |
 | `assets/fonts/ShareTechMono.woff2` | Stalheart's font bundle; Share Tech Mono, SIL Open Font License |
 | `assets/fonts/VT323.woff2` | Stalheart's font bundle; VT323, SIL Open Font License |
-| `assets/models/ovum.bin`, `ovum.json` | `../Jelly-Baby/src/assets/model/ovum.*`, manifest source `ovum-spider-v3`; used as the nursery mother |
+| `assets/models/ovum.bin`, `ovum.json` | `../Jelly-Baby/src/assets/model/ovum.*`, manifest source `ovum-spider-v3`; used as the nursery mother with its native soft-body cage and six-limb behavior |
 | `assets/models/reed.bin`, `reed.json` | `../Jelly-Baby/src/assets/model/reed.*`; original Reed cage and surface, driven by its native physical reach/plant/pull cycle |
 | `src/fx/gorogoro/` | Jelly-Baby’s native Cutis-Gorogoro kit from `../Jelly-Baby/src/cutis/swarm/` and `src/cutis/creature/`: TypeScript transpiled to standalone JavaScript, imports adapted to vendored Three.js; original shaders retained, GPL-3.0 license included |
-| `src/fx/reed/` | Frozen Creature Lab `../Jelly-Baby/src/monster/` behavior, pursuit, gait, traction and support modules plus `src/physics/` cage parser, soft-body solver and embedded WASM kernel. TypeScript stripped; math/geometry imports use vendored Three.js r160; unused WebGPU prey-rendering functions omitted. Original C kernel source and GPL-3.0 license included. `src/reed.js` owns host timing and surface-frame integration. |
+| `src/fx/reed/` | Frozen Creature Lab `../Jelly-Baby/src/monster/` behavior, pursuit, gait, traction and support modules plus `src/physics/` cage parser, soft-body solver and embedded WASM kernel. TypeScript stripped; math/geometry imports use vendored Three.js r160; unused WebGPU prey-rendering functions omitted. Original C kernel source and GPL-3.0 license included. `src/reed.js` owns Reed timing and surface-frame integration; `src/queen-motion.js` reuses the same native runtime with the Ovum cage and a slower clock. |
 | `assets/audio/isao_hit_wall.mp3` | User-provided `~/Downloads/IsaoCaveSoundsd/IsaoHittingCaveWall.mp3`, copied unchanged |
 | `assets/audio/isao_hit_enemy.mp3` | User-provided `~/Downloads/IsaoCaveSoundsd/IsaoHittingSlimeyEnemy.mp3`, copied unchanged; slime creatures, eggs and Queen contacts |
 | `assets/audio/isao_hit_tentacle.mp3` | User-provided `~/Downloads/IsaoCaveSoundsd/IsaoHittingAWallTentacle.mp3`, copied unchanged |
