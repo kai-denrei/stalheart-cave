@@ -1,7 +1,7 @@
 import {rimRadius, bowlHeight, SINKHOLE_INNER, SINKHOLE_DEPTH} from './stalheart/sinkhole-shape.js';
 
 // Metres and seconds. The same geometry contract drives rendering and flight.
-export const FUSE=65, FLARE_COUNT=6, EGG_COUNT=1600, HOLE_SCALE=24;
+export const FUSE=65, FLARE_COUNT=10, EGG_COUNT=1600, HOLE_SCALE=24;
 export const CHAMBER={x:0,y:-208,z:-79,r:90,ry:58,opening:.1};
 export const QUEEN={x:0,y:-219,z:-101,scale:620,baseY:-254};
 export const START={x:0,y:11,z:23};

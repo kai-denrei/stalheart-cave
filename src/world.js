@@ -1,5 +1,5 @@
 import * as THREE from '../vendor/three.module.js';
-import { center, radius, frameAt, ringPoint, ROUTE_END, SHAFT_TOP, CHAMBER_LIP, chamberFloor, smooth, pointSegmentDistance } from './mission.js';
+import { center, radius, frameAt, ringPoint, ROUTE_END, SHAFT_TOP, CHAMBER_LIP, chamberFloor, smooth, pointSegmentDistance, FLARE_COUNT } from './mission.js';
 import {createSinkholeEntrance} from './sinkhole.js';
 import {createNursery} from './nursery.js';
 import {createCaveNetwork} from './cave.js';
@@ -25,7 +25,7 @@ export async function createWorld(canvas){
   scene.fog=new THREE.FogExp2(0x020504,.035);
   const camera=new THREE.PerspectiveCamera(72,innerWidth/innerHeight,.08,340);
   camera.rotation.order='YXZ';scene.add(camera);const player=new THREE.Vector3();
-  const uniforms={uTime:{value:0},uLidar:{value:0},uScanTime:{value:-100},uScanOrigin:{value:new THREE.Vector3()},uScanMode:{value:0},uPreview:{value:0},uLampPosition:{value:new THREE.Vector3()},uLampDirection:{value:new THREE.Vector3()},uLampStrength:{value:0},uFlarePositions:{value:Array.from({length:6},()=>new THREE.Vector3())},uFlareStrengths:{value:Array(6).fill(0)}};
+  const uniforms={uTime:{value:0},uLidar:{value:0},uScanTime:{value:-100},uScanOrigin:{value:new THREE.Vector3()},uScanMode:{value:0},uPreview:{value:0},uLampPosition:{value:new THREE.Vector3()},uLampDirection:{value:new THREE.Vector3()},uLampStrength:{value:0},uFlarePositions:{value:Array.from({length:FLARE_COUNT},()=>new THREE.Vector3())},uFlareStrengths:{value:Array(FLARE_COUNT).fill(0)}};
   const surfaces=[];
   function material(color,roughness=.93,rock=false){
     const mat=new THREE.MeshStandardMaterial({color,roughness,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1});
@@ -33,7 +33,7 @@ export async function createWorld(canvas){
       shader.uniforms.uLidar=uniforms.uLidar;shader.uniforms.uFlarePositions=uniforms.uFlarePositions;shader.uniforms.uFlareStrengths=uniforms.uFlareStrengths;
       shader.vertexShader='varying vec3 vFlareWorld;\n'+shader.vertexShader;
       shader.vertexShader=shader.vertexShader.replace('#include <project_vertex>','vec4 flarePosition=vec4(transformed,1.);\n#ifdef USE_INSTANCING\nflarePosition=instanceMatrix*flarePosition;\n#endif\nvFlareWorld=(modelMatrix*flarePosition).xyz;\n#include <project_vertex>');
-      shader.fragmentShader='uniform float uLidar;uniform vec3 uFlarePositions[6];uniform float uFlareStrengths[6];varying vec3 vFlareWorld;\n'+shader.fragmentShader;
+      shader.fragmentShader='#define FLARE_COUNT '+FLARE_COUNT+'\n'+'uniform float uLidar;uniform vec3 uFlarePositions[FLARE_COUNT];uniform float uFlareStrengths[FLARE_COUNT];varying vec3 vFlareWorld;\n'+shader.fragmentShader;
       if(rock){
         shader.vertexShader='varying vec3 vRock;\n'+shader.vertexShader;
         shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvRock=position;');
@@ -44,7 +44,7 @@ export async function createWorld(canvas){
         shader.fragmentShader=shader.fragmentShader.replace('#include <color_fragment>','#include <color_fragment>\nfloat strata=noiseRock(vRock*1.8)*.5+noiseRock(vRock*7.)*.3+noiseRock(vRock*23.)*.2;diffuseColor.rgb*=.25+strata*1.25;');
         shader.fragmentShader=shader.fragmentShader.replace('#include <normal_fragment_maps>','#include <normal_fragment_maps>\nnormal=normalize(normal+vec3(dFdx(strata),dFdy(strata),0.)*2.);');
       }
-      shader.fragmentShader=shader.fragmentShader.replace('#include <dithering_fragment>','#include <dithering_fragment>\n if(uLidar > .5){float light=0.;for(int i=0;i<6;i++)light+=uFlareStrengths[i]*(1.-smoothstep(2.,12.,distance(vFlareWorld,uFlarePositions[i])));gl_FragColor.rgb=mix(vec3(.002,.005,.004),gl_FragColor.rgb,clamp(light,0.,1.));}');
+      shader.fragmentShader=shader.fragmentShader.replace('#include <dithering_fragment>','#include <dithering_fragment>\n if(uLidar > .5){float light=0.;for(int i=0;i<FLARE_COUNT;i++)light+=uFlareStrengths[i]*(1.-smoothstep(2.,12.,distance(vFlareWorld,uFlarePositions[i])));gl_FragColor.rgb=mix(vec3(.002,.005,.004),gl_FragColor.rgb,clamp(light,0.,1.));}');
     };return mat;
   }
   const stone=material(0x62675a,.93,true),flesh=material(0x535b43,.55),metal=material(0x55645e,.6);

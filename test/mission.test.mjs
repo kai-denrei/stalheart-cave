@@ -40,9 +40,9 @@ test('bomb placement accepts different positions close to the Queen, rejects dis
   const m=createMission();tickMission(m,4,{x:65,y:-210,z:-80},true);assert.equal(m.payload,true);assert.equal(m.armProgress,0);
   tickMission(m,1,placement,true);tickMission(m,1,placement,false);assert.equal(m.armProgress,0);
 });
-test('exactly six flares, no spending after the ending, and a full restock on restart',()=>{
-  const m=createMission();for(let i=0;i<6;i++){assert.equal(useFlare(m),true);assert.equal(m.flares,5-i);}assert.equal(useFlare(m),false);
-  const reset=createMission();assert.equal(reset.flares,6);reset.outcome='lost';assert.equal(useFlare(reset),false);assert.equal(reset.flares,6);
+test('exactly ten flares, no spending after the ending, and a full restock on restart',()=>{
+  const m=createMission();for(let i=0;i<10;i++){assert.equal(useFlare(m),true);assert.equal(m.flares,9-i);}assert.equal(useFlare(m),false);
+  const reset=createMission();assert.equal(reset.flares,10);reset.outcome='lost';assert.equal(useFlare(reset),false);assert.equal(reset.flares,10);
 });
 test('only reaching the real surface rescues ISAO; fuse and hull loss preserve all endings',()=>{
   const m=createMission();tickMission(m,3,placement,true);assert.deepEqual(tickMission(m,.1,center(3),false),[]);assert.deepEqual(tickMission(m,.1,{x:0,y:3,z:0},false),['extracted']);assert.equal(m.outcome,null);assert.equal(m.detonated,false);

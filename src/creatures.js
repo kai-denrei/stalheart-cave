@@ -8,7 +8,7 @@ import {PEARL_TIERS} from './stalheart/pearl-enemies.js';
 import {CutisSwarm as GoroSwarm} from './fx/gorogoro/controller.js';
 import {createSwarmGeometry as createGoroGeometry} from './fx/gorogoro/geometry.js';
 import {GOROGORO_DEFAULT_CONFIG} from './fx/gorogoro/tiers.js';
-import {frameAt,ringPoint,branchCenter} from './mission.js';
+import {frameAt,ringPoint,branchCenter,FLARE_COUNT} from './mission.js';
 
 export async function createTunnelCreatures({scene,body,points,material,uniforms,camera}){
   const ivory=PEARL_TIERS.find(t=>t.id==='white'),creatures=[];
@@ -37,10 +37,10 @@ export async function createTunnelCreatures({scene,body,points,material,uniforms
       for(const name of ['uScanTime','uScanOrigin','uLampPosition','uLampDirection','uLampStrength'])mat.uniforms[name]=uniforms[name];
       mat.uniforms.uSurveyTime=uniforms.uTime;
       mat.uniforms.uLidar=uniforms.uLidar;mat.uniforms.uScanMode=uniforms.uScanMode;mat.uniforms.uFlarePositions=uniforms.uFlarePositions;mat.uniforms.uFlareStrengths=uniforms.uFlareStrengths;
-      mat.fragmentShader='uniform float uSurveyTime;uniform float uScanTime;uniform vec3 uScanOrigin;uniform vec3 uLampPosition;uniform vec3 uLampDirection;uniform float uLampStrength;\n'+surveyGLSL.replaceAll('uTime','uSurveyTime')+'\n'+'uniform float uLidar;uniform float uScanMode;uniform vec3 uFlarePositions[6];uniform float uFlareStrengths[6];\n'+mat.fragmentShader;
+      mat.fragmentShader='#define FLARE_COUNT '+FLARE_COUNT+'\n'+'uniform float uSurveyTime;uniform float uScanTime;uniform vec3 uScanOrigin;uniform vec3 uLampPosition;uniform vec3 uLampDirection;uniform float uLampStrength;\n'+surveyGLSL.replaceAll('uTime','uSurveyTime')+'\n'+'uniform float uLidar;uniform float uScanMode;uniform vec3 uFlarePositions[FLARE_COUNT];uniform float uFlareStrengths[FLARE_COUNT];\n'+mat.fragmentShader;
       mat.fragmentShader=mat.fragmentShader.replace('#include <tonemapping_fragment>',`
         if(uLidar>.5){float d=distance(vWorld,uScanOrigin),echo=surveyReturn(vWorld);float grain=fract(sin(dot(floor(vWorld*23.),vec3(12.9,78.2,45.1))+floor(uSurveyTime*8.)*.17)*43758.5);if(echo<.02||grain<.24||mod(gl_FragCoord.x,3.)>1.||mod(gl_FragCoord.y,3.)>1.)discard;gl_FragColor=vec4(surveyColor(d,uScanMode,1.)*.8,echo*.65);}
-        else{float light=0.;for(int i=0;i<6;i++)light+=uFlareStrengths[i]*(1.-smoothstep(2.,14.,distance(vWorld,uFlarePositions[i])));vec3 delta=vWorld-uLampPosition;float lamp=uLampStrength*(1.-smoothstep(2.,19.,length(delta)))*smoothstep(.78,.95,dot(normalize(delta),uLampDirection));gl_FragColor.rgb*=light*vec3(1.,.075,.03)+lamp*vec3(.65,.68,.57);gl_FragColor.a*=step(.015,light+lamp);}
+        else{float light=0.;for(int i=0;i<FLARE_COUNT;i++)light+=uFlareStrengths[i]*(1.-smoothstep(2.,14.,distance(vWorld,uFlarePositions[i])));vec3 delta=vWorld-uLampPosition;float lamp=uLampStrength*(1.-smoothstep(2.,19.,length(delta)))*smoothstep(.78,.95,dot(normalize(delta),uLampDirection));gl_FragColor.rgb*=light*vec3(1.,.075,.03)+lamp*vec3(.65,.68,.57);gl_FragColor.a*=step(.015,light+lamp);}
         #include <tonemapping_fragment>`);
     }
     const core=body(new THREE.SphereGeometry(config.r0*config.coreSize,16,12),material(config.coreTint,.3),group,500);

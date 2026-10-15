@@ -2,7 +2,7 @@ import * as THREE from '../vendor/three.module.js';
 import { createWorld } from './world.js';
 import { createAudio } from './audio.js';
 import {createFlight,fly} from './flight.js';
-import { center, confine, closeToQueen, createMission, tickMission, clamp, START, QUEEN, CHAMBER_LIP, nearestRoute, useFlare, recordImpact, MAX_HP } from './mission.js';
+import { center, confine, closeToQueen, createMission, tickMission, clamp, START, QUEEN, CHAMBER_LIP, nearestRoute, useFlare, recordImpact, MAX_HP, FLARE_COUNT } from './mission.js';
 
 const $=id=>document.getElementById(id);
 const audio=createAudio();
@@ -27,7 +27,7 @@ function start(){
   $('briefing').hidden=true;$('pause').hidden=true;$('ending').hidden=true;$('hud').hidden=false;$('countdown').hidden=true;$('interaction').hidden=true;$('isao-face').classList.remove('worried');
   $('alert').textContent='';alertUntil=0;mode='playing';audio.reset();audio.pause(false);audio.init().catch(()=>{});updateSoundLabel();lock();
   say('Work light’s on. Keep me clear of the walls.',6);
-  say('Six flares. F to drop one. We’ll need to find our own way back.',7,'ISAO',7);
+  say('Ten flares. F to drop one. We’ll need to find our own way back.',7,'ISAO',7);
   say('Keep me clear of the walls. I’d like to come back.',6,'ISAO',16);
 }
 function pause(){if(!['playing','surface','detonation'].includes(mode))return;resumeMode=mode;mode='paused';keys.clear();velocity.set(0,0,0);$('pause').hidden=false;audio.pause(true);if(document.pointerLockElement)document.exitPointerLock();}
@@ -70,7 +70,7 @@ function event(type){
   } else if(type==='lamp-restored'){
     say('There. Light’s back. Carefully.',4);
   } else if(type==='lamp-failed'){
-    alert('WORK LIGHT / PERMANENT FAILURE',7);say('Lamp’s dead. Six flares. We have to make them last.',6);
+    alert('WORK LIGHT / PERMANENT FAILURE',7);say('Lamp’s dead. Use the flares. We have to make them last.',6);
   } else if(type==='lidar-processing'){
     say('I’ll try processing the LiDAR information.',5,'ISAO',.6);
   } else if(type==='lidar-ready'){
@@ -158,7 +158,7 @@ function updateHUD(){
   $('bearing').textContent=`HDG ${String(Math.round((-yaw*180/Math.PI%360+360)%360)).padStart(3,'0')}`;
   $('range').textContent=mission.payload?'SURVEY / SOURCE UNKNOWN':'RETURN / SURFACE';
   if(mission.nursery&&mission.payload)$('range').textContent='QUEEN / CONFIRMED';
-  $('flare-count').textContent=String(mission.flares).padStart(2,'0')+' / 06';
+  $('flare-count').textContent=String(mission.flares).padStart(2,'0')+' / '+FLARE_COUNT;
   $('link').textContent=`LINK ${Math.max(18,Math.round(99-depth*.29))}%`;
   const placing=mission.payload&&keys.has('KeyE');
   $('interaction').hidden=!placing;
