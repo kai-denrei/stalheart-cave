@@ -57,5 +57,5 @@ export function createDetonation(scene,entrance){
     dust.material.opacity=Math.max(0,.65-age*.2);dust.position.y=Math.min(18,age*22);dust.scale.setScalar(1+age*3.5);
   }
   function reset(){started=null;age=0;firstAboveGround=null;smoke.visible=false;flash.intensity=0;ring.material.opacity=0;dust.material.opacity=0;dust.position.y=0;dust.scale.setScalar(1);entrance.group.position.y=0;entrance.group.rotation.set(0,0,0);}
-  return {start,update,reset,stats:()=>({detonationActive:started!==null,detonationAge:age,smokeVisible:smoke.visible&&age>SMOKE_FIRST_EMISSION,smokeParticles:smoke.visible?SMOKE_COUNT:0,smokeOriginDepth:-SMOKE_SOURCE_Y,smokeLaunchSpeed:SMOKE_BURST_SPEED,smokeReleaseWindow:SMOKE_RELEASE_WINDOW,smokeSurfaceDelay:SMOKE_SURFACE_DELAY,firstSmokeAboveGround:firstAboveGround,groundDisplacement:entrance.group.position.y})};
+  return {start,update,reset,ageAt:time=>started===null?0:Math.max(0,time-started),stats:()=>({detonationActive:started!==null,detonationAge:age,smokeVisible:smoke.visible&&age>SMOKE_FIRST_EMISSION,smokeParticles:smoke.visible?SMOKE_COUNT:0,smokeOriginDepth:-SMOKE_SOURCE_Y,smokeLaunchSpeed:SMOKE_BURST_SPEED,smokeReleaseWindow:SMOKE_RELEASE_WINDOW,smokeSurfaceDelay:SMOKE_SURFACE_DELAY,firstSmokeAboveGround:firstAboveGround,groundDisplacement:entrance.group.position.y})};
 }

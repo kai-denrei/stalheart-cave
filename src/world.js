@@ -153,7 +153,7 @@ export async function createWorld(canvas){
     const cinematic=!!flightData?.cinematic;
     if(flightData)isao.update(time,flightData.dt,player,flightData.yaw,flightData.pitch,flightData.flight,mission);
     isao.rig.visible=!preview&&(!cinematic||mission.extracted);
-    if(cinematic){const state=blast.stats(),age=state.detonationAge,q=flightData.reducedMotion||!state.detonationActive?0:Math.max(0,1-age/5)*1.5;const pull=smooth(.35,1.15,age);camera.position.set(31+pull*115+Math.sin(time*47)*q,29+pull*73+Math.cos(time*41)*q,39+pull*145);camera.lookAt(0,-3+pull*58,0);}
+    if(cinematic){const state=blast.stats(),age=blast.ageAt(time),q=flightData.reducedMotion||!state.detonationActive?0:Math.max(0,1-age/5)*1.5;const pull=smooth(.35,1.15,age);camera.position.set(31+pull*115+Math.sin(time*47)*q,29+pull*73+Math.cos(time*41)*q,39+pull*145);camera.lookAt(0,-3+pull*58,0);}
     uniforms.uLampPosition.value.copy(player).add(new THREE.Vector3(0,-.15,-.8).applyAxisAngle(new THREE.Vector3(0,1,0),flightData?.yaw||0));
     uniforms.uLampDirection.value.set(-Math.sin(flightData?.yaw||0),-.1,-Math.cos(flightData?.yaw||0)).normalize();uniforms.uLampStrength.value=mission.lampState==='working'?1:0;
     uniforms.uTime.value=time;uniforms.uLidar.value=mission.lidar&&!preview&&!cinematic?1:0;uniforms.uPreview.value=0;

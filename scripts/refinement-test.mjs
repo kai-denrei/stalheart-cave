@@ -49,6 +49,6 @@ try{
   await evaluate('__below.pose(65,-200,-30);__below.advance(36)');assert.equal((await snap()).audio.cueCounts.alien_reverb,1,'quiet underground scene plays the supplied reverb');
   await evaluate('__below.blastFrame(.2)');assert.equal((await snap()).firstSmokeAboveGround,null);await capture('refined-blast-inside-throat');
   await evaluate('__below.blastFrame(.55)');assert.ok((await snap()).firstSmokeAboveGround>0);await capture('refined-blast-emerging');
-  await evaluate('__below.blastFrame(2)');await capture('refined-blast-plume');
+  await evaluate('__below.blastFrame(2)');assert.ok((await snap()).cameraPosition[0]>100,'camera retreats after smoke emerges');await capture('refined-blast-plume');
   assert.deepEqual(errors,[],'no browser/WebGL errors');console.log(JSON.stringify({refinements:'PASS',sounds:5,exposure:true,hitHalo:true,nativeReed:true,undergroundSmoke:true,errors}));
 }finally{ws?.close();chrome.kill();await new Promise(r=>server.close(r));await rm(profile,{recursive:true,force:true});}

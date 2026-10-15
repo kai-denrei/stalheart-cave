@@ -27,6 +27,13 @@ test('smoke is born below the throat and stays in a narrow conduit before erupti
   }
   smokeParticle(.1,.7,p);assert.ok(p[1]>40);assert.ok(p[3]>10);assert.ok(p[4]>0);
 });
+test('sustained smoke fills the whole column instead of leaving a gap above the hole',()=>{
+  const p=new Float64Array(5);
+  for(const age of [1.2,2,3,4,6]){const bands=new Set();
+    for(let seed=.65;seed<1;seed+=.0005){smokeParticle(seed,age,p);if(p[4]>.01&&p[1]>=0&&p[1]<80)bands.add(Math.floor(p[1]/10));}
+    for(let band=0;band<8;band++)assert.ok(bands.has(band),`missing smoke at ${band*10} m, age ${age}`);
+  }
+});
 test('Reed uses the native physical reach, pull and settle cycle with moving skin',async()=>{
   const bin=await readFile(new URL('../assets/models/reed.bin',import.meta.url)),meta=JSON.parse(await readFile(new URL('../assets/models/reed.json',import.meta.url),'utf8'));
   const actor=createReedActor(bin.buffer.slice(bin.byteOffset,bin.byteOffset+bin.byteLength),meta),phases=new Set(),rest=actor.body.surface.positions.slice(),start=actor.body.center.clone();
