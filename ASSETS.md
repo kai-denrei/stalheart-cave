@@ -8,8 +8,14 @@ All assets are frozen local copies. No runtime hotlinks or source repositories a
 | `assets/fonts/ShareTechMono.woff2` | Stalheart's font bundle; Share Tech Mono, SIL Open Font License |
 | `assets/fonts/VT323.woff2` | Stalheart's font bundle; VT323, SIL Open Font License |
 | `assets/models/ovum.bin`, `ovum.json` | `../Jelly-Baby/src/assets/model/ovum.*`, manifest source `ovum-spider-v3`; used as the nursery mother |
-| `assets/models/reed.bin`, `reed.json` | `../Jelly-Baby/src/assets/model/reed.*`; original Reed mesh with prototype appendage motion and patrol |
+| `assets/models/reed.bin`, `reed.json` | `../Jelly-Baby/src/assets/model/reed.*`; original Reed cage and surface, driven by its native physical reach/plant/pull cycle |
 | `src/fx/gorogoro/` | Jelly-Baby’s native Cutis-Gorogoro kit from `../Jelly-Baby/src/cutis/swarm/` and `src/cutis/creature/`: TypeScript transpiled to standalone JavaScript, imports adapted to vendored Three.js; original shaders retained, GPL-3.0 license included |
+| `src/fx/reed/` | Frozen Creature Lab `../Jelly-Baby/src/monster/` behavior, pursuit, gait, traction and support modules plus `src/physics/` cage parser, soft-body solver and embedded WASM kernel. TypeScript stripped; math/geometry imports use vendored Three.js r160; unused WebGPU prey-rendering functions omitted. Original C kernel source and GPL-3.0 license included. `src/reed.js` owns host timing and surface-frame integration. |
+| `assets/audio/isao_hit_wall.mp3` | User-provided `~/Downloads/IsaoCaveSoundsd/IsaoHittingCaveWall.mp3`, copied unchanged |
+| `assets/audio/isao_hit_enemy.mp3` | User-provided `~/Downloads/IsaoCaveSoundsd/IsaoHittingSlimeyEnemy.mp3`, copied unchanged; slime creatures, eggs and Queen contacts |
+| `assets/audio/isao_hit_tentacle.mp3` | User-provided `~/Downloads/IsaoCaveSoundsd/IsaoHittingAWallTentacle.mp3`, copied unchanged |
+| `assets/audio/queen_laying_eggs.mp3` | User-provided `~/Downloads/IsaoCaveSoundsd/IsaoCave_TheQueenLayingEggs.mp3`, copied unchanged; first Queen encounter |
+| `assets/audio/alien_reverb.mp3` | User-provided `~/Downloads/IsaoCaveSoundsd/IsaoCaveSounds_AlienReverb.mp3`, copied unchanged; faint quiet-time atmosphere |
 | `assets/audio/sinkhole_quake.mp3` | Stalheart's existing sinkhole sound |
 | `assets/audio/isao_strike_countdown.mp3` | Exact copy of Stalheart’s `assets/audio/isao/sol_firing_03.mp3`: “Strike inbound. Three. Two. One.”; authored number onsets 1.2226, 2.2226, 3.2226 s, duration 3.869 s; starts with 4.2226 s left on the fuse |
 | `assets/audio/blast_fire.mp3` | Stalheart's existing explosion sound |

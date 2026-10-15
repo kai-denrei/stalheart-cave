@@ -1,6 +1,6 @@
 {
   "name": "stalheart-below",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -8,8 +8,9 @@
     "start": "node scripts/serve.mjs",
     "build": "node scripts/build.mjs",
     "test": "node --test test/*.test.mjs",
-    "check": "node --check src/main.js && node --check src/world.js && node --check src/mission.js && node --check src/audio.js && node --check src/nursery.js && node --check src/flares.js && node --check src/flare-physics.js && node --check src/sinkhole.js && node --check src/flight.js && node --check src/isao.js && node --check src/creatures.js && node --check src/detonation.js && node --check src/cave.js && node --check src/lidar.js",
-    "test:browser": "node scripts/browser-test.mjs"
+    "check": "node --check src/main.js && node --check src/world.js && node --check src/mission.js && node --check src/audio.js && node --check src/nursery.js && node --check src/flares.js && node --check src/flare-physics.js && node --check src/sinkhole.js && node --check src/flight.js && node --check src/isao.js && node --check src/creatures.js && node --check src/detonation.js && node --check src/cave.js && node --check src/lidar.js && node --check src/reed.js && node --check src/smoke.js && node --check src/audio-cues.js",
+    "test:browser": "node scripts/browser-test.mjs",
+    "test:refinements": "node scripts/refinement-test.mjs"
   },
   "engines": { "node": ">=22" }
 }

@@ -1,5 +1,6 @@
 import * as THREE from '../vendor/three.module.js';
 import {surveyGLSL} from './lidar.js';
+import {createReedActor} from './reed.js';
 import {CutisSwarm} from './fx/cutis-maku/swarm.js';
 import {DEFAULT_CONFIG} from './fx/cutis-maku/config.js';
 import {createSwarmGeometry} from './fx/cutis-maku/geometry.js';
@@ -48,11 +49,11 @@ export async function createTunnelCreatures({scene,body,points,material,uniforms
   }
   const [metaResponse,binResponse]=await Promise.all([fetch('./assets/models/reed.json'),fetch('./assets/models/reed.bin')]);
   if(!metaResponse.ok||!binResponse.ok)throw new Error('Reed geometry could not be loaded.');
-  const meta=await metaResponse.json(),buffer=await binResponse.arrayBuffer(),layout=meta.layout;
-  const rest=new Float32Array(buffer,layout.positions.offset,layout.positions.length).slice(),reedIndex=new Uint32Array(buffer,layout.indices.offset,layout.indices.length),reeds=[];
+  const meta=await metaResponse.json(),buffer=await binResponse.arrayBuffer(),reeds=[];
   for(const [i,spot] of [{s:77,branch:'main'},{s:93,branch:'main'},{s:61,branch:'left'},{s:110,branch:'left'}].entries()){
-    const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.BufferAttribute(rest.slice(),3));geometry.setIndex(new THREE.BufferAttribute(reedIndex.slice(),1));geometry.computeVertexNormals();
-    const group=new THREE.Group();group.name='Reed';group.scale.setScalar(32);scene.add(group);body(geometry,material(0xa6af99,.38),group,0);points(geometry,group,true);reeds.push({group,geometry,spot,index:i,root:new THREE.Vector3()});
+    const actor=createReedActor(buffer,meta,i),source=actor.body.surface.geometry;
+    const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.BufferAttribute(new Float32Array(source.attributes.position.count*3),3));geometry.setAttribute('normal',source.attributes.normal.clone());geometry.setIndex(source.index.clone());
+    const group=new THREE.Group();group.name='Reed';group.scale.setScalar(32);scene.add(group);body(geometry,material(0xa6af99,.38),group,0);points(geometry,group,true);reeds.push({group,geometry,actor,spot,index:i,root:new THREE.Vector3()});
   }
   const out=[0,0,0,0,0],point=new THREE.Vector3(),target={x:0,z:0};let lastTime=0;
   function update(time){
@@ -67,19 +68,25 @@ export async function createTunnelCreatures({scene,body,points,material,uniforms
       target.x=Math.sin(time*.12+g.index)*2;target.z=Math.cos(time*.09+g.index)*2.2;g.swarm.step(dt,target);g.geometry.update(camera,innerHeight);const c=g.swarm.getCoreContact(0);g.core.position.copy(c.center);
     }
     for(const r of reeds){
-      const s=r.spot.s+3*Math.sin(time*.18+r.index),f=frameAt(s,r.spot.branch),at=ringPoint(s,Math.PI/2,.5,r.spot.branch);
-      r.root.copy(at);r.group.position.copy(at);const up=new THREE.Vector3().copy(f.v).negate(),z=new THREE.Vector3().copy(f.t),x=new THREE.Vector3().crossVectors(up,z).normalize();r.group.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(x,up,z));
-      const p=r.geometry.attributes.position;for(let i=0;i<p.count;i++){const k=i*3,a=Math.atan2(rest[k+2],rest[k]),weight=Math.max(0,(Math.hypot(rest[k],rest[k+2])-.026)/.062);p.setXYZ(i,rest[k],rest[k+1]+weight*.004*Math.sin(time*1.1+a*2+r.index),rest[k+2]);}p.needsUpdate=true;r.geometry.computeVertexNormals();
+      r.actor.update(dt);const center=r.actor.body.center,s=r.spot.s+center.z*32,f=frameAt(s,r.spot.branch),at=ringPoint(s,Math.PI/2,.18,r.spot.branch);
+      r.root.copy(at).addScaledVector(new THREE.Vector3().copy(f.u),center.x*32);r.group.position.copy(r.root);
+      const up=new THREE.Vector3().copy(f.v).negate(),z=new THREE.Vector3().copy(f.t),x=new THREE.Vector3().crossVectors(up,z).normalize();r.group.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(x,up,z));
+      const source=r.actor.body.surface.geometry,p=r.geometry.attributes.position,n=r.geometry.attributes.normal,sp=source.attributes.position;
+      for(let i=0;i<p.count;i++)p.setXYZ(i,sp.getX(i)-center.x,sp.getY(i),sp.getZ(i)-center.z);
+      p.needsUpdate=true;n.array.set(source.attributes.normal.array);n.needsUpdate=true;r.geometry.computeBoundingSphere();
     }
   }
+
   function contacts(position){
     for(const c of creatures){if(position.distanceTo(c.root)>6)continue;c.group.updateWorldMatrix(true,false);const p=c.geometry.attributes.position;
       for(let i=0;i<p.count;i+=3){point.fromBufferAttribute(p,i).applyMatrix4(c.group.matrixWorld);if(point.distanceTo(position)<.7)return {root:c.root,kind:'cutis'};}
     }
     for(const g of goros){g.group.updateWorldMatrix(true,false);const local=position.clone();g.group.worldToLocal(local);const c=g.swarm.getCoreContact(0),segment=g.swarm.getStretchSegment(0),to=g.swarm.getSeekingAnchors(0);if(local.distanceTo(new THREE.Vector3().copy(c.center))<1)return {root:g.root,kind:'gorogoro'};for(const tip of to){const start=new THREE.Vector3().copy(segment.from),end=new THREE.Vector3().copy(tip);const line=new THREE.Line3(start,end);if(line.closestPointToPoint(local,true,point).distanceTo(local)<.65)return {root:g.root,kind:'gorogoro'};}}
-    for(const r of reeds)if(position.distanceTo(r.root.clone().add(new THREE.Vector3(0,1.2,0)))<2.0)return {root:r.root,kind:'reed'};
+    for(const r of reeds){if(position.distanceTo(r.root)>14)continue;r.group.updateWorldMatrix(true,false);const p=r.geometry.attributes.position;
+      for(let i=0;i<p.count;i+=3){point.fromBufferAttribute(p,i).applyMatrix4(r.group.matrixWorld);if(point.distanceTo(position)<.7)return {root:r.root,kind:'reed'};}
+    }
     return null;
   }
-  function reset(){lastTime=0;for(const c of creatures){c.swarm.populate(1);c.swarm.phase[0]=c.index*.09;c.phase=0;}for(const g of goros){g.swarm.reset(1);g.swarm.phase[0]=g.index*.14;}}
-  return {update,contacts,reset,contactSample:()=>{const g=goros[0];g.group.updateWorldMatrix(true,false);return g.group.localToWorld(new THREE.Vector3().copy(g.swarm.getCoreContact(0).center)).toArray();},stats:()=>({cutisCount:creatures.length,cutisType:ivory.name,cutisPhases:creatures.map(c=>c.phase),gorogoroCount:goros.length,gorogoroPhases:goros.map(g=>g.swarm.phase[0]),reedCount:reeds.length,reedPositions:reeds.map(r=>r.group.position.toArray())})};
+  function reset(){lastTime=0;for(const c of creatures){c.swarm.populate(1);c.swarm.phase[0]=c.index*.09;c.phase=0;}for(const g of goros){g.swarm.reset(1);g.swarm.phase[0]=g.index*.14;}for(const r of reeds)r.actor.reset();}
+  return {update,contacts,reset,contactSample:()=>{const g=goros[0];g.group.updateWorldMatrix(true,false);return g.group.localToWorld(new THREE.Vector3().copy(g.swarm.getCoreContact(0).center)).toArray();},stats:()=>({cutisCount:creatures.length,cutisType:ivory.name,cutisPhases:creatures.map(c=>c.phase),gorogoroCount:goros.length,gorogoroPhases:goros.map(g=>g.swarm.phase[0]),reedCount:reeds.length,reedPositions:reeds.map(r=>r.group.position.toArray()),reedMotion:reeds.map(r=>r.actor.stats())})};
 }

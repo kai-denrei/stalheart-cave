@@ -1,8 +1,9 @@
 import * as THREE from '../vendor/three.module.js';
 import { createWorld } from './world.js';
 import { createAudio } from './audio.js';
+import {impactCue} from './audio-cues.js';
 import {createFlight,fly} from './flight.js';
-import { center, confine, closeToQueen, createMission, tickMission, clamp, START, QUEEN, CHAMBER_LIP, nearestRoute, useFlare, recordImpact, MAX_HP, FLARE_COUNT } from './mission.js';
+import { center, confine, closeToQueen, createMission, tickMission, clamp, START, QUEEN, CHAMBER_LIP, nearestRoute, useFlare, recordImpact, MAX_HP, FLARE_COUNT, SINKHOLE_THROAT } from './mission.js';
 
 const $=id=>document.getElementById(id);
 const audio=createAudio();
@@ -15,6 +16,7 @@ const formatTime=s=>{const total=Math.max(0,Math.ceil(s));return `${String(Math.
 
 function say(text,duration=6,speaker='ISAO',delay=0){
   if(delay){dialogueQueue.push({at:simulationTime+delay,text,duration,speaker});return;}
+  audio.noteActivity(simulationTime,duration);
   $('speaker').textContent=speaker;$('dialogue').textContent=text;$('comms').classList.add('on');commsUntil=simulationTime+duration;
 }
 function alert(text,duration=4){$('alert').textContent=text;alertUntil=simulationTime+duration;}
@@ -45,7 +47,7 @@ function selectView(mode){
   if(simulationTime-lastScan>=2.1)scan();
 }
 function receiveImpact(kind='impact'){
-  if(mode!=='playing'||mission.integrity<=0)return;mission.lastContact=kind;impact=.7;audio.tone(90,.15,.07,'triangle');
+  if(mode!=='playing'||mission.integrity<=0)return;mission.lastContact=kind;impact=.9;world.flashHit(simulationTime);audio.noteActivity(simulationTime);audio.play(impactCue(kind),.6);
   for(const e of recordImpact(mission))event(e);
 }
 function dropFlare(){
@@ -80,7 +82,7 @@ function event(type){
   } else if(type==='shaft'){
     say('Straight down. A long way. Mark it if you want to find it again.',7);alert('VERTICAL SHAFT / SHIFT TO DESCEND · SPACE TO CLIMB',7);
   } else if(type==='nursery'){
-    audio.play('sinkhole_quake',.3);dialogueQueue=[];say('All those tremors. She’s been underneath us the whole time.',7);
+    audio.play('queen_laying_eggs',.42);dialogueQueue=[];say('All those tremors. She’s been underneath us the whole time.',7);
     if(mission.lidar){world.scan(simulationTime);lastScan=simulationTime;audio.tone(550,1.5,.08);}
     say('Place the bomb close to the Queen.',8,'ISAO',8);
   } else if(type==='armed'){
@@ -130,7 +132,7 @@ function step(dt){
   if(simulationTime>commsUntil)$('comms').classList.remove('on');
   if(simulationTime>alertUntil)$('alert').textContent='';
   impact=Math.max(0,impact-dt*.7);$('impact').style.opacity=String(impact);
-  audio.update(velocity.length());world.update(simulationTime,mission,false,{flight,dt,yaw,pitch,reducedMotion});updateHUD();
+  audio.update(velocity.length(),simulationTime,player.y<SINKHOLE_THROAT-1,!keys.has('KeyE')&&mission.payload);world.update(simulationTime,mission,false,{flight,dt,yaw,pitch,reducedMotion});updateHUD();
 }
 function updateHUD(){
   const cinematic=mode==='surface'||mode==='detonation';
@@ -205,6 +207,7 @@ try{
     look:(y,p)=>{yaw=y;pitch=p;},
     advance:(seconds)=>{for(let t=0;t<seconds;t+=1/60)step(Math.min(1/60,seconds-t));},
     contactSamples:world.contactSamples,
+    blastFrame:(age)=>{world.startDetonation(simulationTime);mission.payload=false;mission.detonated=true;mission.outcome='sacrifice';mode='detonation';detonationAt=simulationTime;world.update(simulationTime+age,mission,false,{flight,dt:0,yaw,pitch,cinematic:true,reducedMotion});updateHUD();mode='paused';resumeMode='detonation';audio.pause(true);world.render();},
     surveyFrame:(age)=>{world.scan(simulationTime);world.update(simulationTime+age,mission,false,{flight,dt:0,yaw,pitch,reducedMotion});world.render();},
     hurt:(value)=>{mission.integrity=Math.max(0,mission.integrity-value);},
     pose:(x,y,z)=>{world.player.set(x,y,z);velocity.set(0,0,0);},

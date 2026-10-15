@@ -136,6 +136,94 @@
     {
       "path": "assets/audio/isao_strike_countdown.mp3",
       "sha256": "b1e990e607a0167fe6c7bc3d397b99bc903d8782872705e8485f01b56d271d3f"
+    },
+    {
+      "path": "assets/audio/isao_hit_wall.mp3",
+      "sha256": "e5f7f4cb90b7989b50cc46763c90cacc7b696743ab16f11e151715790e74773a"
+    },
+    {
+      "path": "assets/audio/isao_hit_enemy.mp3",
+      "sha256": "66dfb8f631653fe61cb3c55a2d0dd802fd65626e640d416078f7e2abcf4a0a7e"
+    },
+    {
+      "path": "assets/audio/isao_hit_tentacle.mp3",
+      "sha256": "4825e43da64f2547e27e2e353cfa362d8b4f44ad4805067fc08896b6ea246600"
+    },
+    {
+      "path": "assets/audio/queen_laying_eggs.mp3",
+      "sha256": "7f2388795492a4f061ecaeb8a7f245d68d22772a7e4bf408bc1c5d71799714bb"
+    },
+    {
+      "path": "assets/audio/alien_reverb.mp3",
+      "sha256": "5c516c0d4dfceb2064f7f77e53a97c61f4d23847efbe3f8f2241d705bee56b22"
+    },
+    {
+      "path": "src/fx/reed/LICENSE",
+      "sha256": "8b1ba204bb69a0ade2bfcf65ef294a920f6bb361b317dba43c7ef29d96332b9b"
+    },
+    {
+      "path": "src/fx/reed/monster/arena.js",
+      "sha256": "35e997c4e54cf4305c079ccbab55aaf520ce779c4604bf1ec09150527b83d6ff"
+    },
+    {
+      "path": "src/fx/reed/monster/behavior.js",
+      "sha256": "f713c8597f7cd3b9a460175c70bd3723d9a61b85dae53951696a846173a39512"
+    },
+    {
+      "path": "src/fx/reed/monster/cradle.js",
+      "sha256": "977764ff55b0ddeef65a51be54006515c9de28355ed46c6e78762c09d30fc962"
+    },
+    {
+      "path": "src/fx/reed/monster/feeding.js",
+      "sha256": "5a2796fc1eb9966494a13543517de3d9d904b66a64791bd1b753c36028bcf70c"
+    },
+    {
+      "path": "src/fx/reed/monster/gait.js",
+      "sha256": "42cff8140218a12ff57188a9580436514096ccb76040e01941236eddfa211575"
+    },
+    {
+      "path": "src/fx/reed/monster/limb-separation.js",
+      "sha256": "73b3b945a978725b71258183df455b18c03bbe2175238f0cfa162c721350fd44"
+    },
+    {
+      "path": "src/fx/reed/monster/motion-settings.js",
+      "sha256": "718a41df3bd14ab91e58b3a7dac6dce502a8b54f7c69dc20b9e79c7fe3c7401a"
+    },
+    {
+      "path": "src/fx/reed/monster/prey.js",
+      "sha256": "cee3abb4bc022370563fa2184a3129d9174a6b1b9af448c2814346bbc30fbc21"
+    },
+    {
+      "path": "src/fx/reed/monster/pursuit.js",
+      "sha256": "c8cb8a475d81c5e059eac62f0cd921c8e231031b861bd18c7aaf8f2305d0f248"
+    },
+    {
+      "path": "src/fx/reed/monster/traction.js",
+      "sha256": "0971b57a3a6ea0a5982e60cc4852dc7a15d2e51e282393d497de8345914192a8"
+    },
+    {
+      "path": "src/fx/reed/native/soft-body-kernel.c",
+      "sha256": "d9f2335e81ba4e4ce1e04c741f00826162ec55de7e936eaf93f69e74ee15243f"
+    },
+    {
+      "path": "src/fx/reed/physics/cage-model.js",
+      "sha256": "8d388d15f6e0b20374ba3f33b0c8491d0499fc3fe80cb115f89a565541b78655"
+    },
+    {
+      "path": "src/fx/reed/physics/constants.js",
+      "sha256": "0ad24cae058f52d830b4c65e0f106f56967e7b07ad6bf9b7de63b5dcbd5cb64c"
+    },
+    {
+      "path": "src/fx/reed/physics/deform-surface.js",
+      "sha256": "c2830ebbf5220edafb629c6223b0ed61bbe51dd83e722a6c8b740f5f202c0b31"
+    },
+    {
+      "path": "src/fx/reed/physics/soft-body-kernel.js",
+      "sha256": "c2094f274d2b8a4a7e4319f5d1a5d87357775ea11ddfe2832a0928c32a1d25e2"
+    },
+    {
+      "path": "src/fx/reed/physics/soft-body.js",
+      "sha256": "a55bbb48d322cc14be5a50dce4e8d37b572a87bb76c0af4fc653c03faa2ff8f6"
     }
   ],
   "sinkholeAdapterSource": {

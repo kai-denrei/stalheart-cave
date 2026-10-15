@@ -38,19 +38,21 @@ There are no automatic breadcrumbs. Flares are physical, persistent, red lights 
 
 The fuse continues after ISAO reaches the surface or his signal is lost. At zero, a surface view shows the underground blast: the sinkhole and its rim tremble, a pressure ring and dust lift from the ground, and smoke rises from the opening. After this sequence, the result shows recovery of ISAO, successful delivery with ISAO lost, or loss before the charge was armed. ISAO has 12 HP; each wall, tentacle, creature, egg or Queen collision costs one HP, with 1.4 seconds between registered impacts. A sustained grab can cause further damage. There are no collision exemptions at low speed.
 
-## Current prototype — 0.5.1
+## Current prototype — 0.6
 
 - Stalheart's actual irregular sinkhole rim, bowl, rubble, seven contours, and `tronColors` palette. The opaque bottom cap is opened into a navigable throat. Shared shape and look modules are frozen local copies.
 - A widened cave with three branches: the main passage has a straight, 105 m drop; a second passage also reaches the 180 m Queen chamber; a third ends blindly. Rendered openings and collision use the same passage network.
+- Exterior light remains through the whole sinkhole bowl. The cave fade begins one metre below the 13.2 m-deep throat and finishes six metres farther down.
 - Third-person flight with the actual animated ISAO-Birudorōn model, rotating propellers, state-based faces, and quadcopter body tilt.
-- Twelve regular Cutis-Soft Ivory creatures, five authentic Cutis-gorogoro casting appendages, and four animated Reed creatures.
+- Twelve regular Cutis-Soft Ivory creatures, five authentic Cutis-gorogoro casting appendages, and four Reeds running Creature Lab’s actual soft-body reach, plant, pull and settle gait.
 - Sixty-four faster wall appendages with longer reaches across the passage and damage on contact.
 - 1,600 eggs, plus a bounded pool of freshly laid eggs. Eggs visibly emerge beneath the Queen, fall, and settle; the cycle continues throughout the mission.
 - The original Ovum mesh from Creature Lab at over twice its previous scale, with an enlarged abdomen, slow translation and turning, contractions, and an egg duct.
 - Ten player-deployed red flares, free placement close to the Queen, and extraction without a marked return trail.
-- An explosive 3,200-puff smoke burst with 100× the prior minimum launch speed (1,400 m/s) and 100× shorter release window (0.09 seconds). A sustained jet connects the cloud to its source 15 m inside the sinkhole; stronger ground movement, a rapid pressure wave and fast camera retreat frame the eruption.
+- Underground pressure and smoke originate at 25.2 m depth, twelve metres below the throat. Small puffs travel up the conduit for roughly 0.35 seconds before bursting outward at the mouth. Each billboard pixel clips against Stalheart’s irregular bowl, keeping smoke inside the opening until it emerges. A sustained jet, ground tremor, pressure wave and delayed camera retreat frame the blast.
 - A small work light, then ten red flares after damage. Halfway down, ISAO processes LiDAR for four seconds and unlocks muted depth, phosphor, and motion views. All surveyed surfaces share a wave at 105 m/s from ISAO, with depth jitter, flicker and missing returns. 170 m LiDAR sweeps, restrained CRT effects, ISAO's comms face, captioned dialogue, flight ambience, and Stalheart's tremor/explosion sounds.
 - ISAO’s original recorded “Strike inbound. Three. Two. One.” replaces the countdown beeps. The final numbers align with three, two and one seconds remaining; pause suspends both the recording and the fuse.
+- Each registered hit flashes a red halo around ISAO and plays the supplied rock, tentacle or slime impact. The Queen has a one-time entrance cue. Faint alien reverb plays after 18 seconds of quiet underground, with a 35-second minimum interval; it waits for dialogue and effects to finish.
 - Pause on focus loss, restart, mute, keyboard look fallback, and reduced camera motion when requested by the OS.
 
 This is a separate project; it does not modify or integrate into the main Stalheart game. The sinkhole uses an extracted open-bowl adapter rather than the whole game's breach lifecycle. Its surrounding surface is a local patch. The proxy tank has been removed. ISAO uses his original GLB and animation clips. Ovum uses the original surface mesh with prototype deformation, not Creature Lab's full soft-body simulation. Dialogue is captioned; the final countdown uses ISAO’s existing recording. Scans do not provoke enemies or retain historical geometry. Desktop keyboard/mouse only.
@@ -61,24 +63,29 @@ This is a separate project; it does not modify or integrate into the main Stalhe
 npm run check
 npm test
 npm run test:browser
+npm run test:refinements
 ```
 
-The browser check uses the locally installed Google Chrome (`CHROME` can override its executable), owns and cleans up its server and browser, and captures visual stages. It tests the ISAO model and chase camera, real WASD/Shift/Space input, independent altitude, flare inventory/persistence/reset, multiple bomb positions, Queen movement and egg production, countdown continuity after rescue, ground motion/smoke, all endings, 12 HP and physical contact with all five hazard categories, progressive lamp failure and recovery, the recorded countdown and its pause state, all three LiDAR modes and frozen captures of the common reveal wave, physical flight through both Queen routes, and exploration of the blind branch. Captures and reports are written under ignored `artifacts/`.
+The browser check uses the locally installed Google Chrome (`CHROME` can override its executable), owns and cleans up its server and browser, and captures visual stages. It tests the ISAO model and chase camera, real WASD/Shift/Space input, independent altitude, flare inventory/persistence/reset, multiple bomb positions, Queen movement and egg production, countdown continuity after rescue, ground motion/smoke, all endings, 12 HP and physical contact with all five hazard categories, progressive lamp failure and recovery, the recorded countdown and its pause state, all three LiDAR modes and frozen captures of the common reveal wave, physical flight through both Queen routes, and exploration of the blind branch. The focused refinement check covers bowl exposure, supplied sound playback, hit halo lifetime, native Reed motion and the smoke’s passage through the throat. Captures and reports are written under ignored `artifacts/`.
 
 ## Structure
 
 - `src/mission.js`: route, collision boundary, placement region, inventory, mission state.
 - `src/world.js`: rendering, moving tentacles, and world composition; `src/cave.js`: branching cave mesh.
 - `src/flight.js`: stabilized quadcopter physics; `src/isao.js`: actual model, animation, and chase camera.
-- `src/creatures.js`: Ivory, Gorogoro, and Reed inhabitants; `src/fx/cutis-maku/` and `src/fx/gorogoro/`: frozen creature kits.
-- `src/detonation.js`: surface tremor, pressure ring, dust, and smoke.
+- `src/creatures.js`: scene integration; `src/reed.js`: native Reed actor adapter; `src/fx/`: frozen creature runtime snapshots.
+- `src/detonation.js`: blast rendering, bowl clipping and camera data; `src/smoke.js`: renderer-independent emission and motion.
 - `src/sinkhole.js`: Stalheart's open-bowl entrance adapter.
 - `src/nursery.js`: chamber, eggs, Queen deformation and egg-laying cycle.
 - `src/flares.js`: ten physical route-marking flares and local illumination.
-- `src/main.js`: flight, input, dialogue, HUD; `src/audio.js`: local audio.
+- `src/main.js`: flight, input, dialogue, HUD; `src/audio.js`: local audio and owned playback; `src/audio-cues.js`: contact mapping and quiet-time policy.
 
 Three.js r160 matches Stalheart. See `ASSETS.md` and `assets.lock.json` for source snapshots.
 
 ## Publishing
 
 Push to `main` to check, build, and deploy the game through GitHub Actions. GitHub Pages serves `dist/`, containing the game and its local assets. `npm run build` creates the same static output locally.
+
+## Main-game integration boundary
+
+The PoC still owns its own scene and loop. Its host adapters now keep portable behavior separate: `createReedActor(buffer, manifest)` exposes native physics, `smokeParticle(seed, age, out)` supplies smoke motion, `exteriorExposure(y)` uses the shared throat height, and `impactCue(kind)` plus `createQuietWindow()` own audio policy. `createIsao().flashHit(time)` provides body feedback. All use simulation time; pause freezes motion, effects and sound scheduling. Frozen creature source, original solver C, local assets and hashes ship with this repository. The main game will still need to provide its surface frames, scene lifecycle and asset loader.

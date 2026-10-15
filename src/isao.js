@@ -15,6 +15,12 @@ export async function createIsao(scene,camera){
   lamp.position.set(0,-.15,-.8);lamp.target.position.set(0,-.8,-7);rig.add(lamp,lamp.target);
   const spill=new THREE.PointLight(0xc9d7c0,.8,3,1.5);spill.position.set(0,-.1,-.8);rig.add(spill);
   const bulb=new THREE.Mesh(new THREE.SphereGeometry(.055,8,6),new THREE.MeshBasicMaterial({color:0xe0dfbf}));bulb.position.copy(lamp.position);rig.add(bulb);
+  const haloUniforms={strength:{value:0}};
+  const hitHalo=new THREE.Mesh(new THREE.SphereGeometry(1,32,20),new THREE.ShaderMaterial({uniforms:haloUniforms,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,
+    vertexShader:'varying vec3 vNormal;varying vec3 vView;void main(){vec4 p=modelViewMatrix*vec4(position,1.);vView=-p.xyz;vNormal=normalMatrix*normal;gl_Position=projectionMatrix*p;}',
+    fragmentShader:'uniform float strength;varying vec3 vNormal;varying vec3 vView;void main(){float rim=pow(1.-abs(dot(normalize(vNormal),normalize(vView))),1.5);gl_FragColor=vec4(1.,.015,.005,(.04+rim*.9)*strength);}'
+  }));hitHalo.name='ISAO impact halo';hitHalo.scale.set(1.55,.95,1.55);rig.add(hitHalo);hitHalo.visible=false;let hitAt=-100;
+  function flashHit(time){hitAt=time;}
   const back=new THREE.Vector3(),desired=new THREE.Vector3(),target=new THREE.Vector3(),test=new THREE.Vector3(),last=new THREE.Vector3(),candidate=new THREE.Vector3(),best=new THREE.Vector3();
   function clipBoom(position,goal){
     last.copy(position);
@@ -23,6 +29,7 @@ export async function createIsao(scene,camera){
   }
   let initialized=false;
   function update(time,dt,position,yaw,orbitPitch,flight,mission){
+    const hitAge=time-hitAt;haloUniforms.strength.value=hitAge>=0&&hitAge<.9?(1-hitAge/.9)*(.8+.2*Math.sin(hitAge*24)):0;hitHalo.visible=haloUniforms.strength.value>0;
     lamp.intensity=mission.lampState==='working'?38:0;spill.intensity=mission.lampState==='working'?.8:0;bulb.visible=mission.lampState==='working';
     rig.position.copy(position);rig.rotation.set(flight.pitch,yaw,flight.roll,'YXZ');payload.visible=mission.payload;
     const emotion=mission.integrity<=3?'Emotion_Alarm':mission.hits>0?'Emotion_Worried':!mission.payload?'Emotion_Determined':'Emotion_Neutral';
@@ -44,6 +51,6 @@ export async function createIsao(scene,camera){
     const before=camera.position.clone();confine(camera.position,.18);if(before.distanceTo(camera.position)>1)camera.position.copy(desired);
     target.copy(position);target.y+=.25;camera.lookAt(target);
   }
-  function reset(){initialized=false;face=null;mixer.setTime(0);}
-  return {rig,update,reset,stats:()=>({isaoModel:'isao_birudoron_lod1',rotorClip:actions.has('Rotor_Cycle'),rotorRotation:gltf.scene.getObjectByName('ROTOR_FL_SPIN')?.quaternion.toArray(),cameraDistance:camera.position.distanceTo(rig.position),lampIntensity:lamp.intensity})};
+  function reset(){hitAt=-100;hitHalo.visible=false;haloUniforms.strength.value=0;initialized=false;face=null;mixer.setTime(0);}
+  return {rig,update,reset,flashHit,stats:()=>({isaoModel:'isao_birudoron_lod1',rotorClip:actions.has('Rotor_Cycle'),rotorRotation:gltf.scene.getObjectByName('ROTOR_FL_SPIN')?.quaternion.toArray(),cameraDistance:camera.position.distanceTo(rig.position),lampIntensity:lamp.intensity,hitHaloVisible:hitHalo.visible,hitHaloStrength:haloUniforms.strength.value})};
 }

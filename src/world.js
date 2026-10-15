@@ -1,5 +1,5 @@
 import * as THREE from '../vendor/three.module.js';
-import { center, radius, frameAt, ringPoint, ROUTE_END, SHAFT_TOP, CHAMBER_LIP, chamberFloor, smooth, pointSegmentDistance, FLARE_COUNT } from './mission.js';
+import { center, radius, frameAt, ringPoint, ROUTE_END, SHAFT_TOP, CHAMBER_LIP, chamberFloor, smooth, pointSegmentDistance, FLARE_COUNT, exteriorExposure } from './mission.js';
 import {createSinkholeEntrance} from './sinkhole.js';
 import {createNursery} from './nursery.js';
 import {createCaveNetwork} from './cave.js';
@@ -148,19 +148,20 @@ export async function createWorld(canvas){
   for(let i=0;i<1800;i++){const s=rand()*ROUTE_END,f=frameAt(s),a=rand()*TAU,r=rand()*radius(s)*.85;dustPos[i*3]=f.c.x+r*(f.u.x*Math.cos(a)+f.v.x*Math.sin(a));dustPos[i*3+1]=f.c.y+r*(f.u.y*Math.cos(a)+f.v.y*Math.sin(a));dustPos[i*3+2]=f.c.z+r*(f.u.z*Math.cos(a)+f.v.z*Math.sin(a));}
   const dust=new THREE.Points(new THREE.BufferGeometry().setAttribute('position',new THREE.BufferAttribute(dustPos,3)),new THREE.PointsMaterial({color:0x7f9877,size:.025,transparent:true,opacity:.27}));scene.add(dust);
   function scan(time){uniforms.uScanTime.value=time;uniforms.uScanOrigin.value.copy(player);}
+  let exposure=1;
   function update(time,mission,preview=false,flightData=null){
     const cinematic=!!flightData?.cinematic;
     if(flightData)isao.update(time,flightData.dt,player,flightData.yaw,flightData.pitch,flightData.flight,mission);
     isao.rig.visible=!preview&&(!cinematic||mission.extracted);
-    if(cinematic){const state=blast.stats(),age=state.detonationAge,q=flightData.reducedMotion||!state.detonationActive?0:Math.max(0,1-age/5)*1.5;const pull=smooth(0,.8,age);camera.position.set(31+pull*115+Math.sin(time*47)*q,29+pull*73+Math.cos(time*41)*q,39+pull*145);camera.lookAt(0,-3+pull*58,0);}
+    if(cinematic){const state=blast.stats(),age=state.detonationAge,q=flightData.reducedMotion||!state.detonationActive?0:Math.max(0,1-age/5)*1.5;const pull=smooth(.35,1.15,age);camera.position.set(31+pull*115+Math.sin(time*47)*q,29+pull*73+Math.cos(time*41)*q,39+pull*145);camera.lookAt(0,-3+pull*58,0);}
     uniforms.uLampPosition.value.copy(player).add(new THREE.Vector3(0,-.15,-.8).applyAxisAngle(new THREE.Vector3(0,1,0),flightData?.yaw||0));
     uniforms.uLampDirection.value.set(-Math.sin(flightData?.yaw||0),-.1,-Math.cos(flightData?.yaw||0)).normalize();uniforms.uLampStrength.value=mission.lampState==='working'?1:0;
     uniforms.uTime.value=time;uniforms.uLidar.value=mission.lidar&&!preview&&!cinematic?1:0;uniforms.uPreview.value=0;
-    const surface=cinematic||preview?1:smooth(-2,3,player.y);surfaceHemi.intensity=surface*.9;surfaceSun.intensity=surface*1.3;
+    const surface=cinematic||preview?1:exteriorExposure(player.y);exposure=surface;surfaceHemi.intensity=surface*.9;surfaceSun.intensity=surface*1.3;
     scene.background.setRGB(.002+surface*.003,.005+surface*.004,.004+surface*.012);
     scene.fog.density=(mission.lidar||preview)? .002 : .035*(1-surface)+.005;
     dust.visible=false;
-    animateLimbs(time);nursery.update(time);creatures.update(time);flares.update(time,camera);blast.update(time,flightData?.reducedMotion);
+    animateLimbs(time);nursery.update(time);creatures.update(time);flares.update(time,camera);blast.update(time,flightData?.reducedMotion,camera);
     drop.visible=!mission.payload;
     if(mission.bombPosition){
       if(dropTime===null){dropTime=time;dropFloor=chamberFloor(mission.bombPosition.x,mission.bombPosition.z)+.7;}
@@ -173,5 +174,5 @@ export async function createWorld(canvas){
   function reset(){flares.reset();isao.reset();creatures.reset();blast.reset();dropTime=null;drop.visible=false;uniforms.uScanTime.value=-100;}
   function render(){renderer.render(scene,camera);}
   function resize(){camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);}
-  return {camera,player,renderer,scene,update,render,resize,scan,contacts,constrainBodies:nursery.constrain,contactSamples:()=>({...nursery.contactSamples(),tentacle:limbs[0].path[16].toArray(),enemy:creatures.contactSample()}),reset,uniforms,dropFlare:flares.drop,startDetonation:blast.start,setLidarMode:(mode)=>{uniforms.uScanMode.value=mode;},stats:()=>({...network.stats(),...nursery.stats(),...isao.stats(),...creatures.stats(),...blast.stats(),flares:flares.stats(),sinkhole:entrance.source,shaftDepth:SHAFT_TOP-CHAMBER_LIP,tentacles:limbs.length})};
+  return {camera,player,renderer,scene,update,render,resize,scan,contacts,constrainBodies:nursery.constrain,contactSamples:()=>({...nursery.contactSamples(),tentacle:limbs[0].path[16].toArray(),enemy:creatures.contactSample()}),reset,uniforms,dropFlare:flares.drop,startDetonation:blast.start,setLidarMode:(mode)=>{uniforms.uScanMode.value=mode;},flashHit:isao.flashHit,stats:()=>({exteriorExposure:exposure,...network.stats(),...nursery.stats(),...isao.stats(),...creatures.stats(),...blast.stats(),flares:flares.stats(),sinkhole:entrance.source,shaftDepth:SHAFT_TOP-CHAMBER_LIP,tentacles:limbs.length})};
 }

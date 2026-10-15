@@ -14,6 +14,10 @@ export const SHAFT_TOP=-HOLE_SCALE*SINKHOLE_DEPTH-8-24;
 export const CHAMBER_LIP=CHAMBER.y+CHAMBER.ry*Math.cos(CHAMBER.opening);
 export const ROUTE_END=SHAFT_START+(SHAFT_TOP-CHAMBER_LIP);
 
+// The bowl remains exterior. Darkness starts only after crossing its throat.
+export const SINKHOLE_THROAT=-HOLE_SCALE*SINKHOLE_DEPTH;
+export function exteriorExposure(y){return smooth(SINKHOLE_THROAT-7,SINKHOLE_THROAT-1,y);}
+
 export function center(s){
   s=clamp(s,0,ROUTE_END);const throat=-HOLE_SCALE*SINKHOLE_DEPTH;
   if(s<=8)return {x:0,y:throat-s,z:0};
