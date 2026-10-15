@@ -10,7 +10,6 @@
 <body>
   <main id="app">
     <canvas id="view" aria-label="Third-person chase view of ISAO"></canvas>
-    <div id="feed-failure" hidden aria-hidden="true"><span>OPTICAL FEED / NO SIGNAL</span></div>
     <div class="crt" aria-hidden="true"></div><div id="impact" aria-hidden="true"></div>
     <div class="frame-corner tl"></div><div class="frame-corner tr"></div><div class="frame-corner bl"></div><div class="frame-corner br"></div>
     <header class="topline"><a class="wordmark" href="./">STÅLHEART <span>/ BELOW</span></a><div class="top-right"><span class="live-dot"></span> LOCAL FEED <span class="divider">/</span> <span id="clock">00:00:00</span><button id="sound" aria-label="Unmute audio">AUDIO OFF</button></div></header>
@@ -26,14 +25,14 @@
         <button id="begin" class="primary" disabled><span id="begin-label">INITIALIZING FEED</span><span>↗</span></button>
         <p class="brief-note">Find the source. Plant the charge. Bring him home.</p>
       </div>
-      <aside class="brief-side"><div class="vertical-rule"></div><span class="label">SINKHOLE 07</span><strong>NO RETURN<br>TELEMETRY</strong><p>Three passages. Two ways through.<br>Six red flares. No work light.</p><div class="mini-wave" aria-hidden="true">▁▂▁▁▃▆▂▁▃▁▂▅▁▁▂▇▃▁▂▁</div><span class="label">SEISMIC ACTIVITY PERSISTS</span></aside>
-      <footer class="brief-footer"><span>EXPERIMENTAL FLIGHT BUILD <b>0.4</b></span><span>HEADPHONES RECOMMENDED <span class="dim">/</span> KEYBOARD + MOUSE</span></footer>
+      <aside class="brief-side"><div class="vertical-rule"></div><span class="label">SINKHOLE 07</span><strong>NO RETURN<br>TELEMETRY</strong><p>Three passages. Two ways through.<br>One fragile light. Twelve hit points.<br>Six red flares when it fails.</p><div class="mini-wave" aria-hidden="true">▁▂▁▁▃▆▂▁▃▁▂▅▁▁▂▇▃▁▂▁</div><span class="label">SEISMIC ACTIVITY PERSISTS</span></aside>
+      <footer class="brief-footer"><span>EXPERIMENTAL FLIGHT BUILD <b>0.5</b></span><span>HEADPHONES RECOMMENDED <span class="dim">/</span> KEYBOARD + MOUSE</span></footer>
     </section>
 
     <section id="hud" hidden aria-label="Flight instruments">
       <div class="hud-top"><div><span class="label">ISAO / REMOTE PILOT</span><h2 id="objective">DESCEND INTO THE BREACH</h2></div><div class="sensor"><span id="sensor-light" class="live-dot"></span><span id="sensor-mode">OPTICAL</span><small id="sensor-status">LAMP / NOMINAL</small></div></div>
       <div class="left-gauge"><span class="label">DEPTH</span><strong><span id="depth">028</span><small>m</small></strong><div class="gauge-ticks"></div><span class="label">VEL</span><span id="speed">0.0 m/s</span></div>
-      <div class="right-gauge"><span class="label">HULL</span><strong id="integrity">100<small>%</small></strong><div class="hull-track"><div id="hull-bar"></div></div><span class="label">PAYLOAD</span><span id="payload-state">SECURED</span><span class="label">FLARES / F</span><span id="flare-count">06 / 06</span></div>
+      <div class="right-gauge"><span class="label">HULL</span><strong id="integrity">12<small> / 12 HP</small></strong><div class="hull-track"><div id="hull-bar"></div></div><span class="label">PAYLOAD</span><span id="payload-state">SECURED</span><span class="label">FLARES / F</span><span id="flare-count">06 / 06</span></div>
       <div id="reticle" aria-hidden="true"><i></i><i></i><i></i><i></i><span>+</span></div>
       <div id="interaction" hidden><span id="interaction-text">PLACING CHARGE — HOLD E</span><div><i id="arm-bar"></i></div></div>
       <div id="alert" role="status"></div>

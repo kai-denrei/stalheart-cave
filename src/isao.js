@@ -11,6 +11,10 @@ export async function createIsao(scene,camera){
   for(const clip of gltf.animations)actions.set(clip.name,mixer.clipAction(clip));
   actions.get('Rotor_Cycle')?.play();let face=null;
   const payload=new THREE.Mesh(new THREE.CylinderGeometry(.15,.15,.65,12),new THREE.MeshStandardMaterial({color:0x96916c,roughness:.55,metalness:.35}));payload.rotation.z=Math.PI/2;payload.position.set(0,-.58,0);rig.add(payload);
+  const lamp=new THREE.SpotLight(0xe0dfbf,38,19,Math.PI/5,.7,1.4);
+  lamp.position.set(0,-.15,-.8);lamp.target.position.set(0,-.8,-7);rig.add(lamp,lamp.target);
+  const spill=new THREE.PointLight(0xc9d7c0,.8,3,1.5);spill.position.set(0,-.1,-.8);rig.add(spill);
+  const bulb=new THREE.Mesh(new THREE.SphereGeometry(.055,8,6),new THREE.MeshBasicMaterial({color:0xe0dfbf}));bulb.position.copy(lamp.position);rig.add(bulb);
   const back=new THREE.Vector3(),desired=new THREE.Vector3(),target=new THREE.Vector3(),test=new THREE.Vector3(),last=new THREE.Vector3(),candidate=new THREE.Vector3(),best=new THREE.Vector3();
   function clipBoom(position,goal){
     last.copy(position);
@@ -19,8 +23,9 @@ export async function createIsao(scene,camera){
   }
   let initialized=false;
   function update(time,dt,position,yaw,orbitPitch,flight,mission){
+    lamp.intensity=mission.lampState==='working'?38:0;spill.intensity=mission.lampState==='working'?.8:0;bulb.visible=mission.lampState==='working';
     rig.position.copy(position);rig.rotation.set(flight.pitch,yaw,flight.roll,'YXZ');payload.visible=mission.payload;
-    const emotion=mission.integrity<35?'Emotion_Alarm':mission.cameraHits>0?'Emotion_Worried':!mission.payload?'Emotion_Determined':'Emotion_Neutral';
+    const emotion=mission.integrity<=3?'Emotion_Alarm':mission.hits>0?'Emotion_Worried':!mission.payload?'Emotion_Determined':'Emotion_Neutral';
     if(emotion!==face){if(face)actions.get(face)?.stop();actions.get(emotion)?.play();face=emotion;}
     actions.get('Rotor_Cycle')?.setEffectiveTimeScale(1+Math.hypot(flight.velocity.x,flight.velocity.y,flight.velocity.z)*.055);mixer.update(Math.max(0,dt));
     back.set(Math.sin(yaw)*Math.cos(orbitPitch),-Math.sin(orbitPitch),Math.cos(yaw)*Math.cos(orbitPitch));
@@ -40,5 +45,5 @@ export async function createIsao(scene,camera){
     target.copy(position);target.y+=.25;camera.lookAt(target);
   }
   function reset(){initialized=false;face=null;mixer.setTime(0);}
-  return {rig,update,reset,stats:()=>({isaoModel:'isao_birudoron_lod1',rotorClip:actions.has('Rotor_Cycle'),rotorRotation:gltf.scene.getObjectByName('ROTOR_FL_SPIN')?.quaternion.toArray(),cameraDistance:camera.position.distanceTo(rig.position)})};
+  return {rig,update,reset,stats:()=>({isaoModel:'isao_birudoron_lod1',rotorClip:actions.has('Rotor_Cycle'),rotorRotation:gltf.scene.getObjectByName('ROTOR_FL_SPIN')?.quaternion.toArray(),cameraDistance:camera.position.distanceTo(rig.position),lampIntensity:lamp.intensity})};
 }

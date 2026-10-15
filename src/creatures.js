@@ -1,4 +1,5 @@
 import * as THREE from '../vendor/three.module.js';
+import {surveyGLSL} from './lidar.js';
 import {CutisSwarm} from './fx/cutis-maku/swarm.js';
 import {DEFAULT_CONFIG} from './fx/cutis-maku/config.js';
 import {createSwarmGeometry} from './fx/cutis-maku/geometry.js';
@@ -11,14 +12,14 @@ import {frameAt,ringPoint,branchCenter} from './mission.js';
 
 export async function createTunnelCreatures({scene,body,points,material,uniforms,camera}){
   const ivory=PEARL_TIERS.find(t=>t.id==='white'),creatures=[];
-  const configs=[{s:3,a:0},{s:9,a:2.6},{s:17,a:1.1},{s:23,a:Math.PI/2},{s:31,a:Math.PI/2},{s:42,a:Math.PI/2},{s:62,a:Math.PI/2},{s:82,a:Math.PI/2}];
+  const configs=[{s:3,a:0},{s:9,a:2.6},{s:17,a:1.1},{s:23,a:Math.PI/2},{s:31,a:Math.PI/2},{s:42,a:Math.PI/2},{s:62,a:Math.PI/2},{s:82,a:Math.PI/2},{s:51,a:3.6},{s:93,a:2.2},{s:38,a:1.3,branch:'left'},{s:97,a:2.9,branch:'left'}];
   for(const [index,spot] of configs.entries()){
     const config={...DEFAULT_CONFIG,...ivory.values,r0:.7,reach:5.5,cycleDuration:9,transferEase:1,frameStep:1};
     const swarm=new CutisSwarm(config,{capacity:1});swarm.populate(1);swarm.reachLimit=()=>4.1;
     const source=createSwarmGeometry(swarm,{lod:{force:2}}),rest=source.levels[2].geometry.attributes.position;
     const geometry=new THREE.BufferGeometry();geometry.setIndex(source.levels[2].geometry.index.clone());geometry.setAttribute('position',new THREE.Float32BufferAttribute(new Float32Array(rest.count*3),3));
     const directions=Array.from({length:rest.count},(_,i)=>new THREE.Vector3().fromBufferAttribute(rest,i).normalize().toArray());source.dispose();
-    const f=frameAt(spot.s),root=new THREE.Vector3().copy(ringPoint(spot.s,spot.a,.35));
+    const f=frameAt(spot.s,spot.branch),root=new THREE.Vector3().copy(ringPoint(spot.s,spot.a,.35,spot.branch));
     const up=new THREE.Vector3().copy(f.u).multiplyScalar(-Math.cos(spot.a)).addScaledVector(new THREE.Vector3().copy(f.v),-Math.sin(spot.a));
     const z=new THREE.Vector3().copy(f.t),x=new THREE.Vector3().crossVectors(up,z).normalize();
     const group=new THREE.Group();group.name=ivory.name;group.position.copy(root);group.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(x,up,z));scene.add(group);
@@ -26,18 +27,20 @@ export async function createTunnelCreatures({scene,body,points,material,uniforms
     swarm.phase[0]=index*.09;swarm.seed[0]+=index*7;creatures.push({swarm,geometry,directions,group,root,index,phase:0});
   }
   const goros=[];
-  for(const [i,s] of [19,29,39].entries()){
-    const config={...GOROGORO_DEFAULT_CONFIG,r0:.55,reach:6.5,cycleDuration:12,aggression:.65,skinTint:0x7b8274};
+  for(const [i,s] of [19,29,39,57,73].entries()){
+    const config={...GOROGORO_DEFAULT_CONFIG,r0:.55,reach:6.5,cycleDuration:7,aggression:.78,skinTint:0x7b8274};
     const swarm=new GoroSwarm(config);swarm.phase[0]=i*.14;swarm.seed[0]+=i*9;const geometry=createGoroGeometry(swarm);
     const a=s<22?0:Math.PI/2,f=frameAt(s),root=new THREE.Vector3().copy(ringPoint(s,a,.4));
     const up=new THREE.Vector3().copy(f.u).multiplyScalar(-Math.cos(a)).addScaledVector(new THREE.Vector3().copy(f.v),-Math.sin(a)),z=new THREE.Vector3().copy(f.t),x=new THREE.Vector3().crossVectors(up,z).normalize();
     const group=new THREE.Group();group.name='Cutis-gorogoro';group.position.copy(root);group.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(x,up,z));group.add(geometry.group);scene.add(group);
     for(const level of geometry.levels)for(const mat of [level.material,level.coreMaterial]){
+      for(const name of ['uScanTime','uScanOrigin','uLampPosition','uLampDirection','uLampStrength'])mat.uniforms[name]=uniforms[name];
+      mat.uniforms.uSurveyTime=uniforms.uTime;
       mat.uniforms.uLidar=uniforms.uLidar;mat.uniforms.uScanMode=uniforms.uScanMode;mat.uniforms.uFlarePositions=uniforms.uFlarePositions;mat.uniforms.uFlareStrengths=uniforms.uFlareStrengths;
-      mat.fragmentShader='uniform float uLidar;uniform float uScanMode;uniform vec3 uFlarePositions[6];uniform float uFlareStrengths[6];\n'+mat.fragmentShader;
+      mat.fragmentShader='uniform float uSurveyTime;uniform float uScanTime;uniform vec3 uScanOrigin;uniform vec3 uLampPosition;uniform vec3 uLampDirection;uniform float uLampStrength;\n'+surveyGLSL.replaceAll('uTime','uSurveyTime')+'\n'+'uniform float uLidar;uniform float uScanMode;uniform vec3 uFlarePositions[6];uniform float uFlareStrengths[6];\n'+mat.fragmentShader;
       mat.fragmentShader=mat.fragmentShader.replace('#include <tonemapping_fragment>',`
-        if(uLidar>.5){float d=distance(vWorld,cameraPosition);vec3 survey=mix(vec3(.95,.43,.2),vec3(.2,.55,.72),smoothstep(3.,50.,d));if(uScanMode>.5&&uScanMode<1.5)survey=vec3(.36,.88,.5);if(uScanMode>1.5)survey=vec3(1.,.42,.24);if(mod(gl_FragCoord.x,3.)>1.||mod(gl_FragCoord.y,3.)>1.)discard;gl_FragColor=vec4(survey,.9);}
-        else{float light=0.;for(int i=0;i<6;i++)light+=uFlareStrengths[i]*(1.-smoothstep(2.,14.,distance(vWorld,uFlarePositions[i])));gl_FragColor.rgb*=light*vec3(1.,.075,.03);gl_FragColor.a*=step(.015,light);}
+        if(uLidar>.5){float d=distance(vWorld,uScanOrigin),echo=surveyReturn(vWorld);float grain=fract(sin(dot(floor(vWorld*23.),vec3(12.9,78.2,45.1))+floor(uSurveyTime*8.)*.17)*43758.5);if(echo<.02||grain<.24||mod(gl_FragCoord.x,3.)>1.||mod(gl_FragCoord.y,3.)>1.)discard;gl_FragColor=vec4(surveyColor(d,uScanMode,1.)*.8,echo*.65);}
+        else{float light=0.;for(int i=0;i<6;i++)light+=uFlareStrengths[i]*(1.-smoothstep(2.,14.,distance(vWorld,uFlarePositions[i])));vec3 delta=vWorld-uLampPosition;float lamp=uLampStrength*(1.-smoothstep(2.,19.,length(delta)))*smoothstep(.78,.95,dot(normalize(delta),uLampDirection));gl_FragColor.rgb*=light*vec3(1.,.075,.03)+lamp*vec3(.65,.68,.57);gl_FragColor.a*=step(.015,light+lamp);}
         #include <tonemapping_fragment>`);
     }
     const core=body(new THREE.SphereGeometry(config.r0*config.coreSize,16,12),material(config.coreTint,.3),group,500);
@@ -47,7 +50,7 @@ export async function createTunnelCreatures({scene,body,points,material,uniforms
   if(!metaResponse.ok||!binResponse.ok)throw new Error('Reed geometry could not be loaded.');
   const meta=await metaResponse.json(),buffer=await binResponse.arrayBuffer(),layout=meta.layout;
   const rest=new Float32Array(buffer,layout.positions.offset,layout.positions.length).slice(),reedIndex=new Uint32Array(buffer,layout.indices.offset,layout.indices.length),reeds=[];
-  for(const [i,spot] of [{s:77,branch:'main'},{s:61,branch:'left'}].entries()){
+  for(const [i,spot] of [{s:77,branch:'main'},{s:93,branch:'main'},{s:61,branch:'left'},{s:110,branch:'left'}].entries()){
     const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.BufferAttribute(rest.slice(),3));geometry.setIndex(new THREE.BufferAttribute(reedIndex.slice(),1));geometry.computeVertexNormals();
     const group=new THREE.Group();group.name='Reed';group.scale.setScalar(32);scene.add(group);body(geometry,material(0xa6af99,.38),group,0);points(geometry,group,true);reeds.push({group,geometry,spot,index:i,root:new THREE.Vector3()});
   }
@@ -78,5 +81,5 @@ export async function createTunnelCreatures({scene,body,points,material,uniforms
     return null;
   }
   function reset(){lastTime=0;for(const c of creatures){c.swarm.populate(1);c.swarm.phase[0]=c.index*.09;c.phase=0;}for(const g of goros){g.swarm.reset(1);g.swarm.phase[0]=g.index*.14;}}
-  return {update,contacts,reset,stats:()=>({cutisCount:creatures.length,cutisType:ivory.name,cutisPhases:creatures.map(c=>c.phase),gorogoroCount:goros.length,gorogoroPhases:goros.map(g=>g.swarm.phase[0]),reedCount:reeds.length,reedPositions:reeds.map(r=>r.group.position.toArray())})};
+  return {update,contacts,reset,contactSample:()=>{const g=goros[0];g.group.updateWorldMatrix(true,false);return g.group.localToWorld(new THREE.Vector3().copy(g.swarm.getCoreContact(0).center)).toArray();},stats:()=>({cutisCount:creatures.length,cutisType:ivory.name,cutisPhases:creatures.map(c=>c.phase),gorogoroCount:goros.length,gorogoroPhases:goros.map(g=>g.swarm.phase[0]),reedCount:reeds.length,reedPositions:reeds.map(r=>r.group.position.toArray())})};
 }

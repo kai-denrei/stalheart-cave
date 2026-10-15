@@ -7,6 +7,7 @@ import {createIsao} from './isao.js';
 import {createTunnelCreatures} from './creatures.js';
 import {createDetonation} from './detonation.js';
 import {createFlares} from './flares.js';
+import {surveyGLSL} from './lidar.js';
 
 const TAU=Math.PI*2;
 function random(seed=9317){return ()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};}
@@ -24,7 +25,7 @@ export async function createWorld(canvas){
   scene.fog=new THREE.FogExp2(0x020504,.035);
   const camera=new THREE.PerspectiveCamera(72,innerWidth/innerHeight,.08,340);
   camera.rotation.order='YXZ';scene.add(camera);const player=new THREE.Vector3();
-  const uniforms={uTime:{value:0},uLidar:{value:0},uScanTime:{value:-100},uScanOrigin:{value:new THREE.Vector3()},uScanMode:{value:0},uPreview:{value:0},uFlarePositions:{value:Array.from({length:6},()=>new THREE.Vector3())},uFlareStrengths:{value:Array(6).fill(0)}};
+  const uniforms={uTime:{value:0},uLidar:{value:0},uScanTime:{value:-100},uScanOrigin:{value:new THREE.Vector3()},uScanMode:{value:0},uPreview:{value:0},uLampPosition:{value:new THREE.Vector3()},uLampDirection:{value:new THREE.Vector3()},uLampStrength:{value:0},uFlarePositions:{value:Array.from({length:6},()=>new THREE.Vector3())},uFlareStrengths:{value:Array(6).fill(0)}};
   const surfaces=[];
   function material(color,roughness=.93,rock=false){
     const mat=new THREE.MeshStandardMaterial({color,roughness,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1});
@@ -52,29 +53,27 @@ export async function createWorld(canvas){
     vertexShader:`
       uniform float uScanMode; uniform float uTime; uniform float uLidar; uniform float uScanTime; uniform vec3 uScanOrigin; uniform float uPreview;
       attribute float aMotion; attribute float aSeed; varying float vMotion; varying float vAlpha; varying float vDistance; varying float vSeed;
+      ${surveyGLSL}
       void main(){
         vec4 world=modelMatrix*vec4(position,1.);vec4 view=viewMatrix*world;
-        float d=length(view.xyz);float scanD=distance(world.xyz,uScanOrigin);float age=uTime-uScanTime-scanD/72.;
-        float echo=step(0.,age)*exp(-max(0.,age)*.22)*step(scanD,170.);
-        float proximity=(1.-smoothstep(7.,23.,d))*.43;
-        float pulse=1.-smoothstep(0.,1.8,abs(scanD-(uTime-uScanTime)*72.));
-        vAlpha=max(proximity,echo*.9)+pulse*.35;
-        vAlpha=max(vAlpha,uPreview*(.52+.18*sin(aSeed*70.)));
-        vAlpha*=uLidar*(.6+.4*aSeed)*(1.-smoothstep(125.,180.,d));
+        float d=distance(world.xyz,uScanOrigin),sampleTime=floor(uTime*8.);
+        float dropout=step(.19,fract(sin(aSeed*794.3+sampleTime*.17)*437.5));
+        vAlpha=surveyReturn(world.xyz)*uLidar*dropout*(.6+.4*aSeed);
+        vec3 jitter=vec3(sin(aSeed*93.+sampleTime),cos(aSeed*79.+sampleTime),sin(aSeed*41.-sampleTime))*(.018+d*.0012);
+        view=viewMatrix*vec4(world.xyz+jitter,1.);
         vDistance=d;vSeed=aSeed;vMotion=aMotion;
         gl_Position=projectionMatrix*view;
-        gl_PointSize=clamp((34.+aSeed*17.)/max(1.,-view.z),1.05,3.3);
+        gl_PointSize=clamp((34.+aSeed*17.)/max(1.,-view.z),1.,2.3);
       }`,
     fragmentShader:`
-      uniform float uScanMode;varying float vMotion;varying float vAlpha;varying float vDistance;varying float vSeed;
+      uniform float uScanMode; uniform float uTime;uniform float uScanTime;uniform vec3 uScanOrigin;
+      ${surveyGLSL}
+      varying float vMotion;varying float vAlpha;varying float vDistance;varying float vSeed;
       void main(){
         if(vAlpha<.02) discard;
         vec2 c=gl_PointCoord-.5;if(dot(c,c)>.25)discard;
-        float d=vDistance;
-        vec3 near=vec3(.94,.43,.23),mid=vec3(.79,.77,.38),green=vec3(.36,.7,.48),far=vec3(.19,.47,.62),deep=vec3(.27,.3,.57);
-        vec3 col=mix(near,mid,smoothstep(2.,12.,d));col=mix(col,green,smoothstep(12.,26.,d));col=mix(col,far,smoothstep(26.,47.,d));col=mix(col,deep,smoothstep(47.,85.,d));
-        if(uScanMode>.5&&uScanMode<1.5)col=vec3(.36,.88,.5)*(.4+vSeed*.6);if(uScanMode>1.5)col=mix(vec3(.12,.23,.31),vec3(1.,.42,.24),vMotion);
-        gl_FragColor=vec4(col*(1.05+vSeed*.3),min(1.,vAlpha*1.15));
+        vec3 col=surveyColor(vDistance,uScanMode,vMotion);
+        gl_FragColor=vec4(col*(.85+vSeed*.15),min(.8,vAlpha));
       }`
   });
   function points(geometry,parent=scene,moving=false){
@@ -122,17 +121,17 @@ export async function createWorld(canvas){
     const mesh=new THREE.Mesh(geo,flesh);scene.add(mesh);mesh.frustumCulled=false;points(geo,scene,true);
     limbs.push({s,angle,length,phase,root,inward,side,along:vec(f.t),geo,arr,segments,radial,path:[]});
   }
-  for(const [i,s] of [27,35,43,52,62,74,85,103,119,137,155,173,191].entries()){addLimb(s,i%2?2.7:.35,i*1.7);addLimb(s+4,i%2?-.7:3.8,i*1.7+2.9);}
-  for(const [i,s] of [25,52,82,117,145].entries()){addLimb(s,.3,i*1.4,'left');addLimb(s+5,3.6,i*1.4+2.2,'left');}
-  addLimb(32,1,3.4,'blind');addLimb(56,4.2,6,'blind');
+  for(const [i,s] of [23,30,37,44,51,58,65,72,80,88,100,110,120,130,140,150,160,170,182,195].entries()){addLimb(s,i%2?2.7:.35,i*1.7);addLimb(s+4,i%2?-.7:3.8,i*1.7+2.9);}
+  for(const [i,s] of [20,36,52,69,86,103,120,140,161].entries()){addLimb(s,.3,i*1.4,'left');addLimb(s+5,3.6,i*1.4+2.2,'left');}
+  for(const [i,s] of [25,42,61].entries()){addLimb(s,.5,i*2,'blind');addLimb(s+5,3.6,i*2+1,'blind');}
   const tangent=new THREE.Vector3(),axis=new THREE.Vector3(),normal=new THREE.Vector3(),up=new THREE.Vector3(0,1,0),alternative=new THREE.Vector3(0,0,1);
   function animateLimbs(time){
     for(const l of limbs){
       l.path.length=0;
-      const reach=l.length*(.52+.43*Math.sin(time*.43+l.phase));
+      const reach=l.length*(.48+.4*Math.sin(time*1.3+l.phase));
       for(let i=0;i<=l.segments;i++){
         const u=i/l.segments;
-        l.path.push(l.root.clone().addScaledVector(l.inward,reach*u).addScaledVector(l.side,Math.sin(u*4.8+time*.52+l.phase)*u*1.7).addScaledVector(l.along,Math.sin(u*3.5+l.phase+time*.3)*u*2.8));
+        l.path.push(l.root.clone().addScaledVector(l.inward,reach*u).addScaledVector(l.side,Math.sin(u*4.8+time*1.8+l.phase)*u*2.4).addScaledVector(l.along,Math.sin(u*3.5+l.phase+time*1.1)*u*3.5));
       }
       for(let i=0;i<=l.segments;i++){
         const p=l.path[i];tangent.subVectors(l.path[Math.min(i+1,l.segments)],l.path[Math.max(0,i-1)]).normalize();axis.crossVectors(tangent,Math.abs(tangent.y)>.94?alternative:up).normalize();normal.crossVectors(tangent,axis).normalize();
@@ -153,7 +152,9 @@ export async function createWorld(canvas){
     const cinematic=!!flightData?.cinematic;
     if(flightData)isao.update(time,flightData.dt,player,flightData.yaw,flightData.pitch,flightData.flight,mission);
     isao.rig.visible=!preview&&(!cinematic||mission.extracted);
-    if(cinematic){const state=blast.stats(),age=state.detonationAge,q=flightData.reducedMotion||!state.detonationActive?0:Math.max(0,1-age/4)*.13;const pull=smooth(0,5,age);camera.position.set(31+pull*45+Math.sin(time*31)*q,29+pull*28+Math.cos(time*29)*q,39+pull*62);camera.lookAt(0,-3+pull*30,0);}
+    if(cinematic){const state=blast.stats(),age=state.detonationAge,q=flightData.reducedMotion||!state.detonationActive?0:Math.max(0,1-age/5)*1.5;const pull=smooth(0,.8,age);camera.position.set(31+pull*115+Math.sin(time*47)*q,29+pull*73+Math.cos(time*41)*q,39+pull*145);camera.lookAt(0,-3+pull*58,0);}
+    uniforms.uLampPosition.value.copy(player).add(new THREE.Vector3(0,-.15,-.8).applyAxisAngle(new THREE.Vector3(0,1,0),flightData?.yaw||0));
+    uniforms.uLampDirection.value.set(-Math.sin(flightData?.yaw||0),-.1,-Math.cos(flightData?.yaw||0)).normalize();uniforms.uLampStrength.value=mission.lampState==='working'?1:0;
     uniforms.uTime.value=time;uniforms.uLidar.value=mission.lidar&&!preview&&!cinematic?1:0;uniforms.uPreview.value=0;
     const surface=cinematic||preview?1:smooth(-2,3,player.y);surfaceHemi.intensity=surface*.9;surfaceSun.intensity=surface*1.3;
     scene.background.setRGB(.002+surface*.003,.005+surface*.004,.004+surface*.012);
@@ -172,5 +173,5 @@ export async function createWorld(canvas){
   function reset(){flares.reset();isao.reset();creatures.reset();blast.reset();dropTime=null;drop.visible=false;uniforms.uScanTime.value=-100;}
   function render(){renderer.render(scene,camera);}
   function resize(){camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);}
-  return {camera,player,renderer,scene,update,render,resize,scan,contacts,constrainBodies:nursery.constrain,reset,uniforms,dropFlare:flares.drop,startDetonation:blast.start,setLidarMode:(mode)=>{uniforms.uScanMode.value=mode;},stats:()=>({...network.stats(),...nursery.stats(),...isao.stats(),...creatures.stats(),...blast.stats(),flares:flares.stats(),sinkhole:entrance.source,shaftDepth:SHAFT_TOP-CHAMBER_LIP,tentacles:limbs.length})};
+  return {camera,player,renderer,scene,update,render,resize,scan,contacts,constrainBodies:nursery.constrain,contactSamples:()=>({...nursery.contactSamples(),tentacle:limbs[0].path[16].toArray(),enemy:creatures.contactSample()}),reset,uniforms,dropFlare:flares.drop,startDetonation:blast.start,setLidarMode:(mode)=>{uniforms.uScanMode.value=mode;},stats:()=>({...network.stats(),...nursery.stats(),...isao.stats(),...creatures.stats(),...blast.stats(),flares:flares.stats(),sinkhole:entrance.source,shaftDepth:SHAFT_TOP-CHAMBER_LIP,tentacles:limbs.length})};
 }

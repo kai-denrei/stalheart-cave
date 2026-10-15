@@ -11,6 +11,7 @@ All assets are frozen local copies. No runtime hotlinks or source repositories a
 | `assets/models/reed.bin`, `reed.json` | `../Jelly-Baby/src/assets/model/reed.*`; original Reed mesh with prototype appendage motion and patrol |
 | `src/fx/gorogoro/` | Jelly-Baby’s native Cutis-Gorogoro kit from `../Jelly-Baby/src/cutis/swarm/` and `src/cutis/creature/`: TypeScript transpiled to standalone JavaScript, imports adapted to vendored Three.js; original shaders retained, GPL-3.0 license included |
 | `assets/audio/sinkhole_quake.mp3` | Stalheart's existing sinkhole sound |
+| `assets/audio/isao_strike_countdown.mp3` | Exact copy of Stalheart’s `assets/audio/isao/sol_firing_03.mp3`: “Strike inbound. Three. Two. One.”; authored number onsets 1.2226, 2.2226, 3.2226 s, duration 3.869 s; starts with 4.2226 s left on the fuse |
 | `assets/audio/blast_fire.mp3` | Stalheart's existing explosion sound |
 | `assets/audio/rotor_spin.wav` | Stalheart's rotor sound, retained for comparison; current flight loop is synthesized |
 | `src/stalheart/sinkhole-shape.js` | Exact copy of Stalheart’s shared sinkhole boundary and bowl contract |

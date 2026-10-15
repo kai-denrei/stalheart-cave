@@ -88,18 +88,19 @@ export function confine(p,margin=.65){
 export function pointSegmentDistance(p,a,b){const dx=b.x-a.x,dy=b.y-a.y,dz=b.z-a.z;const t=clamp(((p.x-a.x)*dx+(p.y-a.y)*dy+(p.z-a.z)*dz)/(dx*dx+dy*dy+dz*dz||1),0,1);return Math.hypot(p.x-a.x-t*dx,p.y-a.y-t*dy,p.z-a.z-t*dz);}
 // A broad region around the Queen, never a world-space waypoint or exact socket.
 export function closeToQueen(p){return p.y<QUEEN.y+9&&p.y>QUEEN.baseY-8&&Math.hypot(p.x-QUEEN.x,p.z-QUEEN.z)<49&&inChamber(p,1);}
-export function createMission(){return {phase:'descent',integrity:100,lightFailed:true,cameraHits:0,cameraState:'working',cameraRecoverAt:0,lidarAvailable:false,lidarProcessingAt:0,lidar:false,lidarMode:0,payload:true,armProgress:0,bombPosition:null,fuse:FUSE,time:0,nursery:false,shaftSeen:false,deadEndSeen:false,flares:FLARE_COUNT,extracted:false,signalLost:false,detonated:false,outcome:null};}
+export const MAX_HP=12;
+export function createMission(){return {phase:'descent',integrity:MAX_HP,hits:0,lampState:'working',lampRecoverAt:0,lidarAvailable:false,lidarProcessingAt:0,lidar:false,lidarMode:0,payload:true,armProgress:0,bombPosition:null,fuse:FUSE,time:0,nursery:false,shaftSeen:false,deadEndSeen:false,flares:FLARE_COUNT,extracted:false,signalLost:false,detonated:false,outcome:null};}
 export function recordImpact(m){
-  if(m.outcome)return [];m.cameraHits++;const events=[];
-  if(m.cameraHits===1){m.cameraState='recovering';m.cameraRecoverAt=m.time+3.5;events.push('camera-glitch');}
-  else if(m.cameraHits===2){m.cameraState='failed';m.cameraRecoverAt=0;events.push('camera-failed');
-    if(!m.lidarAvailable&&!m.lidarProcessingAt){m.lidarProcessingAt=m.time+4;events.push('lidar-processing');}
-  }return events;
+  if(m.outcome||m.extracted||m.signalLost||m.integrity<=0)return [];
+  m.integrity=Math.max(0,m.integrity-1);m.hits++;
+  if(m.hits===1){m.lampState='recovering';m.lampRecoverAt=m.time+3.5;return ['lamp-glitch'];}
+  if(m.hits===2){m.lampState='failed';m.lampRecoverAt=0;return ['lamp-failed'];}
+  return [];
 }
 export function useFlare(m){if(m.outcome||m.extracted||m.signalLost||m.flares<=0)return false;m.flares--;return true;}
 export function tickMission(m,dt,p,arming){
   if(m.outcome)return [];const events=[];m.time+=dt;
-  if(m.cameraState==='recovering'&&m.time>=m.cameraRecoverAt){m.cameraState='working';events.push('camera-restored');}
+  if(m.lampState==='recovering'&&m.time>=m.lampRecoverAt){m.lampState='working';events.push('lamp-restored');}
   if(!m.lidarAvailable&&!m.lidarProcessingAt&&p.y<=-86){m.lidarProcessingAt=m.time+4;events.push('lidar-processing');}
   if(!m.lidarAvailable&&m.lidarProcessingAt&&m.time>=m.lidarProcessingAt){m.lidarAvailable=true;events.push('lidar-ready');}
   if(!m.deadEndSeen){const n=nearestRoute(p),b=BRANCHES.find(b=>b.id===n.branch);if(b.id==='blind'&&n.s>b.length-13){m.deadEndSeen=true;events.push('dead-end');}}

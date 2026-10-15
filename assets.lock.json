@@ -1,5 +1,5 @@
 {
-  "snapshot": "2026-10-14",
+  "snapshot": "2026-10-15",
   "files": [
     {
       "path": "vendor/three.module.js",
@@ -132,6 +132,10 @@
     {
       "path": "src/fx/gorogoro/tiers.js",
       "sha256": "a9d8af3ec1d532745f28dbfc411edd8ebfd740695f4559c64d1d32e1473bd676"
+    },
+    {
+      "path": "assets/audio/isao_strike_countdown.mp3",
+      "sha256": "b1e990e607a0167fe6c7bc3d397b99bc903d8782872705e8485f01b56d271d3f"
     }
   ],
   "sinkholeAdapterSource": {

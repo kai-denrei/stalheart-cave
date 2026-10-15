@@ -2,14 +2,14 @@ import * as THREE from '../vendor/three.module.js';
 import { createWorld } from './world.js';
 import { createAudio } from './audio.js';
 import {createFlight,fly} from './flight.js';
-import { center, confine, closeToQueen, createMission, tickMission, clamp, START, QUEEN, CHAMBER_LIP, nearestRoute, useFlare, recordImpact } from './mission.js';
+import { center, confine, closeToQueen, createMission, tickMission, clamp, START, QUEEN, CHAMBER_LIP, nearestRoute, useFlare, recordImpact, MAX_HP } from './mission.js';
 
 const $=id=>document.getElementById(id);
 const audio=createAudio();
 const keys=new Set(),velocity=new THREE.Vector3();
 let world,mission=createMission(),flight=createFlight(START),mode='briefing',resumeMode='playing',detonationAt=0,yaw=0,pitch=-.43,dragging=false,hadLock=false;
 let simulationTime=0,lastTime=performance.now(),lastScan=-10,lastHit=-10,alertUntil=0,commsUntil=0,impact=0,lookDelta=0;
-let dialogueQueue=[],seen=new Set(),frameTimes=[],lastCountdownSecond=-1,contactToken=null,lastCameraHit=-10;
+let dialogueQueue=[],seen=new Set(),frameTimes=[];
 const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const formatTime=s=>{const total=Math.max(0,Math.ceil(s));return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;};
 
@@ -22,11 +22,11 @@ function lock(){
   try{const promise=$('view').requestPointerLock();promise?.catch(()=>{alert('DRAG TO LOOK · ARROW KEYS ALSO AVAILABLE',5);});}catch{alert('DRAG TO LOOK · ARROW KEYS ALSO AVAILABLE',5);}
 }
 function start(){
-  mission=createMission();world.reset();simulationTime=0;lastScan=-10;lastHit=-10;impact=0;dialogueQueue=[];seen=new Set();lastCountdownSecond=-1;contactToken=null;lastCameraHit=-10;keys.clear();velocity.set(0,0,0);
+  mission=createMission();world.reset();simulationTime=0;lastScan=-10;lastHit=-10;impact=0;dialogueQueue=[];seen=new Set();keys.clear();velocity.set(0,0,0);
   yaw=0;pitch=-.43;world.player.copy(START);flight=createFlight(START);flight.position=world.player;flight.velocity=velocity;
   $('briefing').hidden=true;$('pause').hidden=true;$('ending').hidden=true;$('hud').hidden=false;$('countdown').hidden=true;$('interaction').hidden=true;$('isao-face').classList.remove('worried');
-  $('alert').textContent='';alertUntil=0;mode='playing';audio.pause(false);audio.init().catch(()=>{});updateSoundLabel();lock();
-  say('No light down there. Use the red flares.',6);
+  $('alert').textContent='';alertUntil=0;mode='playing';audio.reset();audio.pause(false);audio.init().catch(()=>{});updateSoundLabel();lock();
+  say('Work light’s on. Keep me clear of the walls.',6);
   say('Six flares. F to drop one. We’ll need to find our own way back.',7,'ISAO',7);
   say('Keep me clear of the walls. I’d like to come back.',6,'ISAO',16);
 }
@@ -40,12 +40,12 @@ function scan(){
   lastScan=simulationTime;world.scan(simulationTime);audio.tone(730,1.1,.09);alert('SURVEY PULSE / 170 m',1.5);
 }
 function selectView(mode){
-  if(mode==='optical'){if(mission.cameraState==='failed'){alert('OPTICAL CAMERA FAILED',3);return;}mission.lidar=false;return;}
+  if(mode==='optical'){mission.lidar=false;return;}
   if(!mission.lidarAvailable)return;mission.lidarMode=Number(mode);world.setLidarMode(mission.lidarMode);mission.lidar=true;
   if(simulationTime-lastScan>=2.1)scan();
 }
-function receiveImpact(amount=4){
-  if(mode!=='playing')return;mission.integrity=Math.max(0,mission.integrity-amount);impact=.7;audio.tone(90,.3,.14,'triangle');
+function receiveImpact(kind='impact'){
+  if(mode!=='playing'||mission.integrity<=0)return;mission.lastContact=kind;impact=.7;audio.tone(90,.15,.07,'triangle');
   for(const e of recordImpact(mission))event(e);
 }
 function dropFlare(){
@@ -62,15 +62,15 @@ function end(outcome){
     lost:['SIGNAL LOST / PAYLOAD NOT ARMED','NO<br>RESPONSE.','The feed goes dark. The tremors continue.<br><br>ISAO never reached the source. Try again. Bring him home.']
   }[outcome];
   $('ending-kicker').textContent=content[0];$('ending-title').innerHTML=content[1];$('ending-copy').innerHTML=content[2];
-  $('ending-stats').textContent=`FLIGHT ${formatTime(mission.time)} / HULL ${Math.ceil(mission.integrity)}% / ${mission.payload?'PAYLOAD UNDELIVERED':'PAYLOAD ARMED'}`;
+  $('ending-stats').textContent=`FLIGHT ${formatTime(mission.time)} / HULL ${mission.integrity} / ${MAX_HP} HP / ${mission.payload?'PAYLOAD UNDELIVERED':'PAYLOAD ARMED'}`;
 }
 function event(type){
-  if(type==='camera-glitch'){
-    alert('CAMERA SIGNAL UNSTABLE',4);say('Camera’s breaking up. Hold on.',4);
-  } else if(type==='camera-restored'){
-    say('There. Camera’s back.',4);
-  } else if(type==='camera-failed'){
-    alert('OPTICAL CAMERA / NO SIGNAL',8);say('Camera’s gone. Completely.',4);
+  if(type==='lamp-glitch'){
+    alert('WORK LIGHT / POWER FAULT',4);say('Light’s gone. Wait…',4);
+  } else if(type==='lamp-restored'){
+    say('There. Light’s back. Carefully.',4);
+  } else if(type==='lamp-failed'){
+    alert('WORK LIGHT / PERMANENT FAILURE',7);say('Lamp’s dead. Six flares. We have to make them last.',6);
   } else if(type==='lidar-processing'){
     say('I’ll try processing the LiDAR information.',5,'ISAO',.6);
   } else if(type==='lidar-ready'){
@@ -113,15 +113,12 @@ function step(dt){
   fly(flight,dt,{forward,right:side,vertical},yaw,mission.payload);
   const player=world.player;
   const caveWall=confine(player),bodyContact=world.constrainBodies(player),wall=caveWall||bodyContact,limb=world.contacts(player);
-  const speedBeforeContact=velocity.length(),key=limb?`${limb.kind||'tentacle'}:${limb.root.x.toFixed(1)}:${limb.root.y.toFixed(1)}:${limb.root.z.toFixed(1)}`:wall?'wall':null;
   if(wall)velocity.multiplyScalar(.55);
-  if((wall&&speedBeforeContact>.8||limb)&&simulationTime-lastHit>1.4){
-    const damage=limb?(limb.kind==='cutis'?2:4):2;
-    if(key!==contactToken&&simulationTime-lastCameraHit>1){receiveImpact(damage);lastCameraHit=simulationTime;}else mission.integrity=Math.max(0,mission.integrity-damage);
-    lastHit=simulationTime;impact=.7;
+  if((wall||limb)&&simulationTime-lastHit>1.4){
+    receiveImpact(limb?(limb.kind||'tentacle'):bodyContact?bodyContact.kind:'wall');lastHit=simulationTime;
     if(limb){const push=player.clone().sub(limb.root).normalize();velocity.addScaledVector(push,3);player.addScaledVector(push,.25);alert('CONTACT / SOMETHING HAS THE AIRFRAME',2);}
+    else alert(bodyContact?`CONTACT / ${bodyContact.kind.toUpperCase()}`:'CONTACT / CAVE WALL',2);
   }
-  contactToken=key;
   const events=tickMission(mission,dt,player,keys.has('KeyE')&&velocity.length()<1.8);
   for(const e of events)event(e);
   if(mode!=='playing')return;
@@ -139,7 +136,9 @@ function updateHUD(){
   const cinematic=mode==='surface'||mode==='detonation';
   $('reticle').hidden=cinematic;
   document.querySelector('.controls').hidden=cinematic;
-  if(!mission.payload&&!mission.detonated&&mission.fuse<=10){const second=Math.ceil(mission.fuse);if(second!==lastCountdownSecond){audio.tone(850,.12,.07);lastCountdownSecond=second;}}
+  if(!mission.payload&&!mission.detonated&&mission.fuse<=4.2226&&mission.fuse>0&&!seen.has('spoken-countdown')){
+    seen.add('spoken-countdown');audio.countdown(mission.fuse);dialogueQueue=[];say('Strike inbound. Three. Two. One.',mission.fuse,'ISAO');
+  }
   $('countdown').style.color=mission.fuse<15?'var(--red)':'var(--amber)';
   $('countdown').querySelector('.label').textContent=mission.detonated?'CHARGE DETONATED':'DETONATION IN';
   $('countdown').lastElementChild.textContent=mission.detonated?'COLONY / SOURCE DESTROYED':mission.extracted?'ISAO SAFE / STAND CLEAR':'GET ISAO TO THE SURFACE';
@@ -147,17 +146,14 @@ function updateHUD(){
   $('clock').textContent=`00:${formatTime(mission.time)}`;
   $('depth').textContent=String(Math.round(depth)).padStart(3,'0');
   $('speed').textContent=`${velocity.length().toFixed(1)} m/s`;
-  $('integrity').innerHTML=`${Math.ceil(mission.integrity)}<small>%</small>`;$('hull-bar').style.width=`${mission.integrity}%`;$('hull-bar').style.background=mission.integrity<35?'var(--red)':'';
-  const videoLost=!cinematic&&!mission.lidar&&mission.cameraState!=='working';
-  $('feed-failure').hidden=!videoLost;
-  $('feed-failure').style.opacity=mission.cameraState==='failed'?'1':String(reducedMotion?.7:.45+.45*Math.abs(Math.sin(simulationTime*13)));
-  $('sensor-mode').textContent=cinematic?'SURFACE / OPTICAL':mission.lidar?['LIDAR / DEPTH','LIDAR / PHOSPHOR','LIDAR / MOTION'][mission.lidarMode]:mission.cameraState==='failed'?'CAMERA / FAILED':mission.cameraState==='recovering'?'CAMERA / UNSTABLE':'OPTICAL';
-  $('sensor-status').textContent=cinematic?'OBSERVATION FEED':mission.lidar?'Q / WIDE SURVEY PULSE':mission.lidarAvailable?'PROCESSED RETURNS AVAILABLE':mission.lidarProcessingAt?'PROCESSING LIDAR':'RED FLARES / F';
-  $('sensor-light').style.background=mission.cameraState!=='working'&&!mission.lidar?'var(--red)':'';
+  $('integrity').innerHTML=`${mission.integrity}<small> / ${MAX_HP} HP</small>`;$('hull-bar').style.width=`${mission.integrity/MAX_HP*100}%`;$('hull-bar').style.background=mission.integrity<=3?'var(--red)':'';
+  $('sensor-mode').textContent=cinematic?'SURFACE / OPTICAL':mission.lidar?['LIDAR / DEPTH','LIDAR / PHOSPHOR','LIDAR / MOTION'][mission.lidarMode]:'OPTICAL';
+  $('sensor-status').textContent=cinematic?'OBSERVATION FEED':mission.lidar?'Q / WIDE SURVEY PULSE':mission.lampState==='working'?'WORK LIGHT / NOMINAL':mission.lampState==='recovering'?'WORK LIGHT / POWER FAULT':'WORK LIGHT LOST / FLARES F';
+  $('sensor-light').style.background=mission.lampState!=='working'&&!mission.lidar?'var(--red)':'';
   $('lidar-options').hidden=!mission.lidarAvailable||cinematic;
   $('scan-key').hidden=!mission.lidarAvailable;
-  for(const button of document.querySelectorAll('[data-view]')){button.classList.toggle('active',button.dataset.view===(mission.lidar?String(mission.lidarMode):'optical'));button.disabled=button.dataset.view==='optical'&&mission.cameraState==='failed';}
-  $('objective').textContent=mission.detonated?'SUBSURFACE DETONATION':mission.extracted?'ISAO RECOVERED / CHARGE COUNTING':mission.signalLost?'SIGNAL LOST / CHARGE COUNTING':!mission.payload?'RETURN TO THE SINKHOLE':mission.nursery?'Place the bomb close to the Queen.':mission.cameraHits>0?'FIND THE SOURCE / AVOID CONTACT':'DESCEND INTO THE BREACH';
+  for(const button of document.querySelectorAll('[data-view]'))button.classList.toggle('active',button.dataset.view===(mission.lidar?String(mission.lidarMode):'optical'));
+  $('objective').textContent=mission.detonated?'SUBSURFACE DETONATION':mission.extracted?'ISAO RECOVERED / CHARGE COUNTING':mission.signalLost?'SIGNAL LOST / CHARGE COUNTING':!mission.payload?'RETURN TO THE SINKHOLE':mission.nursery?'Place the bomb close to the Queen.':mission.hits>0?'FIND THE SOURCE / AVOID CONTACT':'DESCEND INTO THE BREACH';
   $('depth-key').hidden=!mission.lidar||cinematic;$('payload-state').textContent=mission.payload?'SECURED':'DEPLOYED';
   $('bearing').textContent=`HDG ${String(Math.round((-yaw*180/Math.PI%360+360)%360)).padStart(3,'0')}`;
   $('range').textContent=mission.payload?'SURVEY / SOURCE UNKNOWN':'RETURN / SURFACE';
@@ -204,10 +200,12 @@ try{
   requestAnimationFrame(frame);
   // Explicit test URL only; the normal game exposes no debug controls.
   if(new URLSearchParams(location.search).has('test'))window.__below={
-    snapshot:()=>({mode,mission:{...mission},position:world.player.toArray(),cameraPosition:world.camera.position.toArray(),velocity:velocity.toArray(),attitude:{roll:flight.roll,pitch:flight.pitch},yaw,pitch,drawCalls:world.renderer.info.render.calls,points:world.renderer.info.render.points,meanFrameMs:frameTimes.reduce((a,b)=>a+b,0)/frameTimes.length*1000,...world.stats(),mother:'ovum-spider-v3',route:nearestRoute(world.player).s}),
+    snapshot:()=>({mode,mission:{...mission},position:world.player.toArray(),cameraPosition:world.camera.position.toArray(),velocity:velocity.toArray(),attitude:{roll:flight.roll,pitch:flight.pitch},yaw,pitch,drawCalls:world.renderer.info.render.calls,points:world.renderer.info.render.points,meanFrameMs:frameTimes.reduce((a,b)=>a+b,0)/frameTimes.length*1000,...world.stats(),audio:audio.stats(),mother:'ovum-spider-v3',route:nearestRoute(world.player).s}),
     place:(s,dx=0,dy=0)=>{const c=center(s);world.player.set(c.x+dx,c.y+dy,c.z);velocity.set(0,0,0);},
     look:(y,p)=>{yaw=y;pitch=p;},
     advance:(seconds)=>{for(let t=0;t<seconds;t+=1/60)step(Math.min(1/60,seconds-t));},
+    contactSamples:world.contactSamples,
+    surveyFrame:(age)=>{world.scan(simulationTime);world.update(simulationTime+age,mission,false,{flight,dt:0,yaw,pitch,reducedMotion});world.render();},
     hurt:(value)=>{mission.integrity=Math.max(0,mission.integrity-value);},
     pose:(x,y,z)=>{world.player.set(x,y,z);velocity.set(0,0,0);},
     nearQueen:()=>{world.player.set(QUEEN.x+37,QUEEN.y,QUEEN.z+8);velocity.set(0,0,0);},

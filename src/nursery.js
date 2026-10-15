@@ -2,7 +2,7 @@ import * as THREE from '../vendor/three.module.js';
 import {CHAMBER,QUEEN,EGG_COUNT,chamberFloor,clamp,isTunnelInterior} from './mission.js';
 
 export async function createNursery({scene,body,points,sample,stone,flesh,rand}){
-  // A 152 m chamber with an open ceiling connected directly to the drop shaft.
+  // A 180 m chamber with an open ceiling connected directly to the drop shaft.
   const shell=new THREE.SphereGeometry(1,112,72,0,Math.PI*2,CHAMBER.opening,Math.PI-CHAMBER.opening);
   shell.scale(CHAMBER.r,CHAMBER.ry,CHAMBER.r);shell.translate(CHAMBER.x,CHAMBER.y,CHAMBER.z);
   // Cut the second route into the chamber wall, rather than leaving a solid cap.
@@ -20,7 +20,7 @@ export async function createNursery({scene,body,points,sample,stone,flesh,rand})
     const a=rand()*Math.PI*2,r=Math.sqrt(rand())*CHAMBER.r*.91,size=.48+rand()*.76;
     const x=CHAMBER.x+Math.cos(a)*r,z=CHAMBER.z+Math.sin(a)*r;
     const p=new THREE.Vector3(x,chamberFloor(x,z)+size*1.65,z);
-    bounds.push({p:p.clone(),r:new THREE.Vector3(size+.55,size*1.6+.55,size+.55)});
+    bounds.push({kind:'egg',p:p.clone(),r:new THREE.Vector3(size+.55,size*1.6+.55,size+.55)});
     q.setFromEuler(new THREE.Euler((rand()-.5)*.5,rand()*6.28,(rand()-.5)*.5));scale.setScalar(size);matrix.compose(p,q,scale);eggs.setMatrixAt(i,matrix);
     for(let j=0;j<eggSample.length;j+=3)v.fromArray(eggSample,j).applyMatrix4(matrix).toArray(eggPoints,i*eggSample.length+j);
   }
@@ -34,7 +34,14 @@ export async function createNursery({scene,body,points,sample,stone,flesh,rand})
   for(let i=0;i<positions.length;i+=3){const x=positions[i],z=positions[i+2],r=Math.hypot(x,z),weight=Math.exp(-Math.pow(r/.037,4));positions[i]=x*(1+.32*weight);positions[i+2]=z*(1+.48*weight);positions[i+1]+=(.011+(positions[i+1]-.046)*.44)*weight;}
   queenGeo.setAttribute('position',new THREE.BufferAttribute(positions,3));queenGeo.setIndex(new THREE.BufferAttribute(new Uint32Array(bin,layout.indices.offset,layout.indices.length),1));queenGeo.computeVertexNormals();
   const queen=new THREE.Group();queen.name='Ovum Queen';queen.position.set(QUEEN.x,QUEEN.baseY,QUEEN.z);queen.scale.setScalar(QUEEN.scale);scene.add(queen);body(queenGeo,flesh,queen,110000);
-  const queenBound={p:new THREE.Vector3(QUEEN.x,QUEEN.y,QUEEN.z),r:new THREE.Vector3(24,32,22)};bounds.push(queenBound);
+  const queenBound={kind:'queen',p:new THREE.Vector3(QUEEN.x,QUEEN.y,QUEEN.z),r:new THREE.Vector3(24,32,22)};bounds.push(queenBound);
+  // A metre-space vertex grid also catches contact with the Queen's authored limbs.
+  const queenCells=new Map(),qp=queenGeo.attributes.position;
+  for(let i=0;i<qp.count;i++){
+    const v=new THREE.Vector3().fromBufferAttribute(qp,i).multiplyScalar(QUEEN.scale),key=`${Math.floor(v.x)},${Math.floor(v.y)},${Math.floor(v.z)}`;
+    if(!queenCells.has(key))queenCells.set(key,[]);queenCells.get(key).push(v);
+  }
+  const local=new THREE.Vector3(),near=new THREE.Vector3(),contact={kind:'queen',root:queenBound.p};
   // Egg duct extends from the swollen underside; eggs emerge, fall, and settle.
   const ductCurve=new THREE.CatmullRomCurve3([new THREE.Vector3(0,-230,QUEEN.z+7),new THREE.Vector3(0,-239,QUEEN.z+15),new THREE.Vector3(0,-246,QUEEN.z+20)]);
   const duct=body(new THREE.TubeGeometry(ductCurve,28,1.9,10,false),flesh,scene,6000);
@@ -65,12 +72,19 @@ export async function createNursery({scene,body,points,sample,stone,flesh,rand})
     }
   }
   function constrain(p){
-    if(p.y>CHAMBER.y+38)return false;let hit=false;
+    if(p.y>CHAMBER.y+38)return false;
     for(const shape of bounds){
       if(Math.abs(p.z-shape.p.z)>shape.r.z||Math.abs(p.x-shape.p.x)>shape.r.x)continue;
       const x=(p.x-shape.p.x)/shape.r.x,y=(p.y-shape.p.y)/shape.r.y,z=(p.z-shape.p.z)/shape.r.z,d=Math.hypot(x,y,z);
-      if(d<1){const n=Math.max(d,.0001);p.set(shape.p.x+x/n*shape.r.x,shape.p.y+(d===0?1:y/n)*shape.r.y,shape.p.z+z/n*shape.r.z);hit=true;}
-    }return hit;
+      if(d<1){const n=Math.max(d,.0001);p.set(shape.p.x+x/n*shape.r.x,shape.p.y+(d===0?1:y/n)*shape.r.y,shape.p.z+z/n*shape.r.z);return {kind:shape.kind,root:shape.p};}
+    }
+    for(const egg of laying){if(egg.visible&&p.distanceTo(egg.position)<2.3){near.subVectors(p,egg.position).normalize();if(near.lengthSq()<.01)near.set(0,1,0);p.copy(egg.position).addScaledVector(near,2.3);return {kind:'egg',root:egg.position};}}
+    queen.updateWorldMatrix(true,false);local.copy(p);queen.worldToLocal(local).multiplyScalar(QUEEN.scale);
+    for(let x=-1;x<=1;x++)for(let y=-1;y<=1;y++)for(let z=-1;z<=1;z++){
+      const cell=queenCells.get(`${Math.floor(local.x)+x},${Math.floor(local.y)+y},${Math.floor(local.z)+z}`);if(!cell)continue;
+      for(const v of cell)if(local.distanceToSquared(v)<.8*.8){near.subVectors(local,v).normalize();if(near.lengthSq()<.01)near.set(0,1,0);local.copy(v).addScaledVector(near,.85).divideScalar(QUEEN.scale);p.copy(queen.localToWorld(local));return contact;}
+    }
+    return false;
   }
-  return {update,constrain,queen,stats:()=>({eggs:EGG_COUNT,laidEggs:laidCount,queenScale:QUEEN.scale,chamberWidth:CHAMBER.r*2,queenPosition:queen.position.toArray(),queenRotation:queen.rotation.y})};
+  return {update,constrain,queen,contactSamples:()=>({egg:bounds[0].p.toArray(),queen:queenBound.p.toArray()}),stats:()=>({eggs:EGG_COUNT,laidEggs:laidCount,queenScale:QUEEN.scale,chamberWidth:CHAMBER.r*2,queenPosition:queen.position.toArray(),queenRotation:queen.rotation.y})};
 }

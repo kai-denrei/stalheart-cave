@@ -5,15 +5,20 @@ import {rimRadius,bowlHeight,SINKHOLE_INNER,SINKHOLE_DEPTH} from '../src/stalhea
 
 const placement={x:QUEEN.x+37,y:QUEEN.y,z:QUEEN.z+8};
 test('LiDAR starts unavailable and is processed halfway down',()=>{
-  const m=createMission();tickMission(m,1,center(49),false);assert.equal(m.lidarAvailable,false);assert.equal(m.cameraState,'working');
+  const m=createMission();tickMission(m,1,center(49),false);assert.equal(m.lidarAvailable,false);assert.equal(m.lampState,'working');
   const events=tickMission(m,1,center(SHAFT_START+43),false);assert.ok(events.includes('lidar-processing'));assert.equal(m.lidarAvailable,false);
   assert.ok(tickMission(m,4,center(SHAFT_START+45),false).includes('lidar-ready'));assert.equal(m.lidarAvailable,true);
 });
-test('first impact interrupts and restores video; second permanently fails, with emergency processing',()=>{
-  const m=createMission();assert.deepEqual(recordImpact(m),['camera-glitch']);assert.equal(m.cameraState,'recovering');
-  tickMission(m,3,center(20),false);assert.equal(m.cameraState,'recovering');assert.ok(tickMission(m,.6,center(20),false).includes('camera-restored'));assert.equal(m.cameraState,'working');
-  assert.deepEqual(recordImpact(m),['camera-failed','lidar-processing']);tickMission(m,4,center(20),false);assert.equal(m.cameraState,'failed');assert.equal(m.lidarAvailable,true);
-  tickMission(m,20,center(20),false);assert.equal(m.cameraState,'failed');assert.equal(createMission().cameraHits,0);
+test('12 HP: each impact costs one; lamp recovers once then fails, while flares and optical vision remain usable',()=>{
+  const m=createMission();assert.equal(m.integrity,12);assert.equal(m.lampState,'working');
+  assert.deepEqual(recordImpact(m),['lamp-glitch']);assert.equal(m.integrity,11);assert.equal(m.lampState,'recovering');
+  tickMission(m,3,center(20),false);assert.equal(m.lampState,'recovering');assert.ok(tickMission(m,.6,center(20),false).includes('lamp-restored'));assert.equal(m.lampState,'working');
+  assert.deepEqual(recordImpact(m),['lamp-failed']);assert.equal(m.integrity,10);tickMission(m,4,center(20),false);assert.equal(m.lampState,'failed');assert.equal(m.lidarAvailable,false);assert.equal(useFlare(m),true);
+  for(let i=0;i<10;i++)recordImpact(m);assert.equal(m.integrity,0);assert.equal(m.hits,12);recordImpact(m);assert.equal(m.integrity,0);assert.equal(m.hits,12);
+  tickMission(m,.1,center(20),false);assert.equal(m.outcome,'lost');assert.equal(createMission().lampState,'working');
+});
+test('a second impact during the first outage never allows the lamp to recover',()=>{
+  const m=createMission();recordImpact(m);tickMission(m,.5,center(20),false);recordImpact(m);tickMission(m,10,center(20),false);assert.equal(m.lampState,'failed');assert.equal(m.integrity,10);
 });
 test('three sub-tunnels join at the fork; two physically enter the Queen chamber, one is sealed',()=>{
   assert.equal(BRANCHES.length,3);assert.equal(BRANCHES.filter(b=>b.toQueen).length,2);

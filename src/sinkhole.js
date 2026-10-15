@@ -31,7 +31,7 @@ export function createSinkholeEntrance(scene){
   }
   const contours=new THREE.LineSegments(new THREE.BufferGeometry().setAttribute('position',new THREE.Float32BufferAttribute(contourPoints,3)),new THREE.LineBasicMaterial({color:look.edges.color,transparent:true,opacity:.6,depthWrite:false,blending:THREE.AdditiveBlending}));group.add(contours);
   const ground=[],groundIndices=[];
-  for(let j=0;j<2;j++)for(let i=0;i<=segments;i++){const a=i/segments*Math.PI*2,r=j?4:rimRadius(a);ground.push(Math.cos(a)*r,0,Math.sin(a)*r);if(j===0&&i<segments){const k=i;groundIndices.push(k,k+1,k+segments+1,k+1,k+segments+2,k+segments+1);}}
+  for(let j=0;j<2;j++)for(let i=0;i<=segments;i++){const a=i/segments*Math.PI*2,r=j?32:rimRadius(a);ground.push(Math.cos(a)*r,0,Math.sin(a)*r);if(j===0&&i<segments){const k=i;groundIndices.push(k,k+1,k+segments+1,k+1,k+segments+2,k+segments+1);}}
   const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(ground,3));g.setIndex(groundIndices);g.computeVertexNormals();group.add(new THREE.Mesh(g,new THREE.MeshStandardMaterial({color:new THREE.Color(...look.floors.path),roughness:1,side:THREE.DoubleSide})));
   group.scale.setScalar(HOLE_SCALE);
   const seams=[];
