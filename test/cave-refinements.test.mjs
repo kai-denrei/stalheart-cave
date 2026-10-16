@@ -45,10 +45,12 @@ test('Reed uses the native physical reach, pull and settle cycle with moving ski
 
 import {IVORY_SPOTS,GORO_SPOTS,REED_SPOTS,MAIN_TENTACLES,LEFT_TENTACLES,BLIND_TENTACLES,colonyDistance,colonyPresence} from '../src/cave-pacing.js';
 import {createAlienSoundscape} from '../src/audio-cues.js';
-test('the approach is empty and colony life builds gradually, with sparse bioluminescence',()=>{
+test('fauna inside the first fifty metres (owner, 2026-10-16), tentacles as way-marks from thirty, and colony life that builds gradually, with sparse bioluminescence',()=>{
   const bodies=[...IVORY_SPOTS,...GORO_SPOTS,...REED_SPOTS];
-  for(const p of bodies)assert.ok(colonyDistance(p.s,p.branch)>=58);
-  for(const [branch,positions] of [['main',MAIN_TENTACLES],['left',LEFT_TENTACLES],['blind',BLIND_TENTACLES]])for(const s of positions)assert.ok(colonyDistance(s,branch)>=68);
+  for(const p of bodies)assert.ok(colonyDistance(p.s,p.branch)>=14);
+  assert.ok(bodies.filter(p=>(p.branch??'main')==='main'&&p.s<50).length>=4,'an assortment near the entrance');assert.ok(REED_SPOTS.some(p=>p.branch==='main'&&p.s<50),'a Reed near the entrance');
+  for(const [branch,positions] of [['main',MAIN_TENTACLES],['left',LEFT_TENTACLES],['blind',BLIND_TENTACLES]])for(const s of positions)assert.ok(colonyDistance(s,branch)>=28);
+  assert.ok(MAIN_TENTACLES.filter(s=>s<60).length>=2,'tentacles mark the way in before the colony');
   assert.equal(colonyPresence(48),0);assert.ok(colonyPresence(80)<colonyPresence(120));assert.equal(colonyPresence(155),1);
   const glowing=bodies.filter(p=>p.bio).length;assert.ok(glowing>0&&glowing<bodies.length/2);
 });
