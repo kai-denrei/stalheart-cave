@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {center,frameAt,ringPoint,wallRadius,confine,createMission,tickMission,FUSE,pointSegmentDistance,closeToQueen,useFlare,QUEEN,CHAMBER,ROUTE_END,SHAFT_START,SHAFT_TOP,CHAMBER_LIP,HOLE_SCALE,recordImpact,BRANCHES,branchCenter,inChamber,isTunnelInterior,terminalDepth,MAZE_LENGTH, lampStrength, LAMP, FLARE_COUNT} from '../src/mission.js';
+import {center,frameAt,ringPoint,wallRadius,confine,createMission,tickMission,FUSE,pointSegmentDistance,closeToQueen,useFlare,QUEEN,CHAMBER,ROUTE_END,SHAFT_START,SHAFT_BOW,SHAFT_TOP,CHAMBER_LIP,HOLE_SCALE,recordImpact,BRANCHES,branchCenter,inChamber,isTunnelInterior,terminalDepth,MAZE_LENGTH, lampStrength, LAMP, FLARE_COUNT} from '../src/mission.js';
 import {rimRadius,bowlHeight,SINKHOLE_INNER,SINKHOLE_DEPTH} from '../src/stalheart/sinkhole-shape.js';
 
 const placement={x:QUEEN.x+37,y:QUEEN.y,z:QUEEN.z+8};
@@ -30,9 +30,12 @@ test('three sub-tunnels join at the fork; two physically enter the Queen chamber
 test('the shared sinkhole throat joins the tunnel exactly, with no black cap',()=>{
   for(let a=0;a<Math.PI*2;a+=.13){const p=ringPoint(0,a);assert.ok(Math.abs(p.x-Math.cos(a)*rimRadius(a)*HOLE_SCALE*SINKHOLE_INNER)<1e-8);assert.ok(Math.abs(p.z-Math.sin(a)*rimRadius(a)*HOLE_SCALE*SINKHOLE_INNER)<1e-8);assert.equal(p.y,-HOLE_SCALE*SINKHOLE_DEPTH);assert.equal(bowlHeight(a,SINKHOLE_INNER),-SINKHOLE_DEPTH);}
 });
-test('a continuous 105 m shaft is genuinely straight down and joins the chamber aperture',()=>{
+test('a continuous 105 m shaft bows SHAFT_BOW off the vertical at its middle (owner, 2026-10-16: a J curve so the top never lights the bottom), hangs straight at both ends and joins the chamber aperture',()=>{
   assert.ok(SHAFT_TOP-CHAMBER_LIP>100);
-  for(let s=SHAFT_START+1;s<=ROUTE_END;s+=3){const c=center(s),f=frameAt(s);assert.equal(c.x,0);assert.equal(c.z,-79);assert.ok(f.t.y<-.9999);}
+  let bow=0;
+  for(let s=SHAFT_START+1;s<=ROUTE_END;s+=3){const c=center(s),f=frameAt(s);assert.ok(c.x>=0&&c.x<=SHAFT_BOW+1e-9);assert.equal(c.z,-79);assert.ok(f.t.y<-.8,'never far from the vertical');bow=Math.max(bow,c.x);}
+  assert.ok(bow>SHAFT_BOW*.95,`the bow reaches ${SHAFT_BOW} m (${bow.toFixed(1)})`);
+  assert.ok(Math.abs(center(SHAFT_START).x)<1e-9&&Math.abs(center(ROUTE_END).x)<1e-6,'plumb at the drop turn and at the lip');
   const end=center(ROUTE_END);assert.equal(end.y,CHAMBER_LIP);assert.ok(Math.abs(wallRadius(ROUTE_END,1)-CHAMBER.r*Math.sin(CHAMBER.opening))<1e-8);
 });
 test('bomb placement accepts different positions close to the Queen, rejects distant ones, and stores the chosen point',()=>{

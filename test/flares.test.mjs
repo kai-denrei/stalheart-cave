@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import * as THREE from '../vendor/three.module.js';
 import {createFlareBody,stepFlare} from '../src/flare-physics.js';
 import {createFlares} from '../src/flares.js';
-import {center,ringPoint,FLARE_COUNT,SHAFT_START} from '../src/mission.js';
+import {center,ringPoint,FLARE_COUNT,SHAFT_START,CHAMBER_LIP} from '../src/mission.js';
 
 test('flares accelerate down the shaft under gravity, independent of update rate',()=>{
   const start=center(SHAFT_START+35),a=createFlareBody(start),b=createFlareBody(start);
@@ -12,10 +12,10 @@ test('flares accelerate down the shaft under gravity, independent of update rate
   assert.ok(Math.abs(a.position.y-b.position.y)<1e-8);
   assert.ok(a.velocity.y<-20);assert.equal(a.resting,false);
 });
-test('a flare touching a vertical shaft wall keeps falling into the chamber',()=>{
-  const body=createFlareBody(ringPoint(SHAFT_START+35,0,.25));stepFlare(body,3);
-  assert.ok(body.position.y<-125);assert.ok(body.velocity.y<-29);assert.equal(body.resting,false);
-  stepFlare(body,3);assert.ok(body.position.y<-250,'no wall attachment along the shaft');
+test('a flare let go by the bowed shaft\'s wall falls on into the chamber or comes to rest on the lean, never hangs on the wall',()=>{
+  const body=createFlareBody(ringPoint(SHAFT_START+35,0,.25));stepFlare(body,6);
+  assert.ok(body.position.y<CHAMBER_LIP-50,`into the chamber, well under the lip: the bowed wall is steeper than the rest angle, so nothing hangs on it (y ${body.position.y.toFixed(1)}, resting ${body.resting})`);
+  assert.ok(Number.isFinite(body.position.y)&&Number.isFinite(body.velocity.y));
 });
 test('flares bounce and settle on passage and chamber floors',()=>{
   for(const p of [center(49),{x:30,y:-195,z:-65},{x:28,y:8,z:0}]){
