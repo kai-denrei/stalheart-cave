@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {center,frameAt,ringPoint,wallRadius,confine,createMission,tickMission,FUSE,pointSegmentDistance,closeToQueen,useFlare,QUEEN,CHAMBER,ROUTE_END,SHAFT_START,SHAFT_TOP,CHAMBER_LIP,HOLE_SCALE,recordImpact,BRANCHES,branchCenter,inChamber,isTunnelInterior,terminalDepth,MAZE_LENGTH} from '../src/mission.js';
+import {center,frameAt,ringPoint,wallRadius,confine,createMission,tickMission,FUSE,pointSegmentDistance,closeToQueen,useFlare,QUEEN,CHAMBER,ROUTE_END,SHAFT_START,SHAFT_TOP,CHAMBER_LIP,HOLE_SCALE,recordImpact,BRANCHES,branchCenter,inChamber,isTunnelInterior,terminalDepth,MAZE_LENGTH, lampStrength, LAMP, FLARE_COUNT} from '../src/mission.js';
 import {rimRadius,bowlHeight,SINKHOLE_INNER,SINKHOLE_DEPTH} from '../src/stalheart/sinkhole-shape.js';
 
 const placement={x:QUEEN.x+37,y:QUEEN.y,z:QUEEN.z+8};
@@ -9,16 +9,18 @@ test('LiDAR starts unavailable and is processed halfway down',()=>{
   const events=tickMission(m,1,center(SHAFT_START+43),false);assert.ok(events.includes('lidar-processing'));assert.equal(m.lidarAvailable,false);
   assert.ok(tickMission(m,4,center(SHAFT_START+45),false).includes('lidar-ready'));assert.equal(m.lidarAvailable,true);
 });
-test('12 HP: each impact costs one; lamp stays on through the first hit then fails, while flares and optical vision remain usable',()=>{
+test('12 HP: each impact costs one; lamp stays on through the first hit, flickers on the second, comes back, then fails for good, while flares and optical vision remain usable',()=>{
   const m=createMission();assert.equal(m.integrity,12);assert.equal(m.lampState,'working');
   assert.deepEqual(recordImpact(m),['airframe-hit']);assert.equal(m.integrity,11);assert.equal(m.lampState,'working');
   tickMission(m,3,center(20),false);assert.equal(m.lampState,'working');assert.deepEqual(tickMission(m,.6,center(20),false),[]);assert.equal(m.lampState,'working');
-  assert.deepEqual(recordImpact(m),['lamp-failed']);assert.equal(m.integrity,10);tickMission(m,4,center(20),false);assert.equal(m.lampState,'failed');assert.equal(m.lidarAvailable,false);assert.equal(useFlare(m),true);
+  assert.deepEqual(recordImpact(m),['lamp-flicker']);assert.equal(m.integrity,10);assert.equal(m.lampState,'flicker');assert.ok(lampStrength(m)<LAMP.strong&&lampStrength(m)>0,'flickering');
+  assert.deepEqual(tickMission(m,LAMP.flicker+.5,center(20),false),['lamp-back']);assert.equal(m.lampState,'back');assert.equal(lampStrength(m),LAMP.dim);
+  assert.deepEqual(tickMission(m,LAMP.back+.5,center(20),false),['lamp-failed']);assert.equal(m.lampState,'failed');assert.equal(lampStrength(m),0);assert.equal(m.lidarAvailable,false);assert.equal(useFlare(m),true);
   for(let i=0;i<10;i++)recordImpact(m);assert.equal(m.integrity,0);assert.equal(m.hits,12);recordImpact(m);assert.equal(m.integrity,0);assert.equal(m.hits,12);
   tickMission(m,.1,center(20),false);assert.equal(m.outcome,'lost');assert.equal(createMission().lampState,'working');
 });
-test('the second impact fails the lamp permanently even immediately after the first',()=>{
-  const m=createMission();recordImpact(m);tickMission(m,.5,center(20),false);recordImpact(m);tickMission(m,10,center(20),false);assert.equal(m.lampState,'failed');assert.equal(m.integrity,10);
+test('the second impact starts the lamp failing even immediately after the first; it is out for good after the flicker and the return',()=>{
+  const m=createMission();recordImpact(m);tickMission(m,.5,center(20),false);recordImpact(m);assert.equal(m.lampState,'flicker');tickMission(m,10,center(20),false);assert.equal(m.lampState,'back');tickMission(m,LAMP.back+1,center(20),false);assert.equal(m.lampState,'failed');assert.equal(m.integrity,10);
 });
 test('three sub-tunnels join at the fork; two physically enter the Queen chamber, one is sealed',()=>{
   assert.equal(BRANCHES.length,3);assert.equal(BRANCHES.filter(b=>b.toQueen).length,2);
@@ -37,12 +39,12 @@ test('bomb placement accepts different positions close to the Queen, rejects dis
   for(const p of [placement,{x:-39,y:-225,z:-98},{x:6,y:-245,z:-65}]){
     assert.equal(closeToQueen(p),true);const m=createMission();const events=tickMission(m,3,p,true);assert.ok(events.includes('armed'));assert.equal(m.bombPosition.x,p.x);assert.equal(m.bombPosition.z,p.z);
   }
-  const m=createMission();tickMission(m,4,{x:65,y:-210,z:-80},true);assert.equal(m.payload,true);assert.equal(m.armProgress,0);
+  const m=createMission();tickMission(m,4,{x:95,y:-210,z:-80},true);assert.equal(m.payload,true);assert.equal(m.armProgress,0);   // 95 m out: past the 70 m the owner widened it to (2026-10-16)
   tickMission(m,1,placement,true);tickMission(m,1,placement,false);assert.equal(m.armProgress,0);
 });
-test('exactly ten flares, no spending after the ending, and a full restock on restart',()=>{
-  const m=createMission();for(let i=0;i<10;i++){assert.equal(useFlare(m),true);assert.equal(m.flares,9-i);}assert.equal(useFlare(m),false);
-  const reset=createMission();assert.equal(reset.flares,10);reset.outcome='lost';assert.equal(useFlare(reset),false);assert.equal(reset.flares,10);
+test('exactly FLARE_COUNT flares, no spending after the ending, and a full restock on restart',()=>{
+  const m=createMission();for(let i=0;i<FLARE_COUNT;i++){assert.equal(useFlare(m),true);assert.equal(m.flares,FLARE_COUNT-1-i);}assert.equal(useFlare(m),false);
+  const reset=createMission();assert.equal(reset.flares,FLARE_COUNT);reset.outcome='lost';assert.equal(useFlare(reset),false);assert.equal(reset.flares,FLARE_COUNT);
 });
 test('only reaching the real surface rescues ISAO; fuse and hull loss preserve all endings',()=>{
   const m=createMission();tickMission(m,3,placement,true);assert.deepEqual(tickMission(m,.1,center(3),false),[]);assert.deepEqual(tickMission(m,.1,{x:0,y:3,z:0},false),['extracted']);assert.equal(m.outcome,null);assert.equal(m.detonated,false);

@@ -26,9 +26,9 @@ test('flares bounce and settle on passage and chamber floors',()=>{
 test('all ten physical flares illuminate their falling positions and reset together',()=>{
   const uniforms={uFlarePositions:{value:Array.from({length:FLARE_COUNT,SHAFT_START},()=>new THREE.Vector3())},uFlareStrengths:{value:Array(FLARE_COUNT).fill(0)}};
   const flares=createFlares(new THREE.Scene(),uniforms),camera=new THREE.PerspectiveCamera(),p=center(SHAFT_START+35);
-  for(let i=0;i<10;i++)assert.equal(flares.drop(p,0,0),true);
+  for(let i=0;i<FLARE_COUNT;i++)assert.equal(flares.drop(p,0,0),true);
   assert.equal(flares.drop(p,0,0),false);flares.update(2,camera);
-  assert.equal(flares.stats().length,10);
-  for(let i=0;i<10;i++){const f=flares.stats()[i];assert.ok(f.position[1]<p.y-20);assert.deepEqual(uniforms.uFlarePositions.value[i].toArray(),f.position);assert.ok(uniforms.uFlareStrengths.value[i]>0);}
-  flares.reset();assert.equal(flares.stats().length,0);assert.deepEqual(uniforms.uFlareStrengths.value,Array(10).fill(0));assert.equal(flares.drop(p,3,0),true);
+  assert.equal(flares.stats().length,FLARE_COUNT);
+  for(let i=0;i<FLARE_COUNT;i++){const f=flares.stats()[i];assert.ok(f.position[1]<p.y-20);assert.deepEqual(uniforms.uFlarePositions.value[i].toArray(),f.position);assert.ok(uniforms.uFlareStrengths.value[i]>0);}
+  flares.reset();assert.equal(flares.stats().length,0);assert.deepEqual(uniforms.uFlareStrengths.value,Array(FLARE_COUNT).fill(0));assert.equal(flares.drop(p,3,0),true);
 });
